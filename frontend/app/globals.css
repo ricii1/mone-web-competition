@@ -189,3 +189,24 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
+
+@keyframes node-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.node-appear {
+  animation: node-appear 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-appear {
+    animation: none;
+  }
+}

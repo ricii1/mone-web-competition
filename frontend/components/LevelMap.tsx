@@ -1,10 +1,15 @@
 "use client";
 
-import { Background, Handle, Position, ReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react";
+import { Background, Handle, Position, ReactFlow, useReactFlow, type Edge, type Node, type NodeProps } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { Level, Progress } from "@/lib/types";
+
+const TEACHER_STATUS_STYLE: Record<string, { bg: string; text: string }> = {
+  draft: { bg: "#DCD5C2", text: "#1B2A41" },
+  approved: { bg: "#3F7D58", text: "#F3EFE3" },
+};
 
 const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
   locked: { bg: "#DCD5C2", text: "#1B2A41" },
@@ -12,11 +17,14 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
   completed: { bg: "#3F7D58", text: "#F3EFE3" },
 };
 
-function LevelNode({ data }: NodeProps<Node<{ label: string; status: string; type: string }>>) {
-  const style = STATUS_STYLE[data.status] ?? STATUS_STYLE.locked;
+function LevelNode({
+  data,
+}: NodeProps<Node<{ label: string; status: string; type: string; teacher: boolean }>>) {
+  const palette = data.teacher ? TEACHER_STATUS_STYLE : STATUS_STYLE;
+  const style = palette[data.status] ?? palette.draft ?? STATUS_STYLE.locked;
   return (
     <div
-      className="rounded-sm border-2 px-4 py-2 text-center font-sans text-sm font-medium"
+      className="node-appear rounded-sm border-2 px-4 py-2 text-center font-sans text-sm font-medium"
       style={{
         background: style.bg,
         color: style.text,
@@ -30,16 +38,27 @@ function LevelNode({ data }: NodeProps<Node<{ label: string; status: string; typ
   );
 }
 
+// Re-fit the viewport when nodes are added (levels arrive one by one).
+function FitOnChange({ count }: { count: number }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    fitView({ duration: 0, maxZoom: 1 });
+  }, [count, fitView]);
+  return null;
+}
+
 const nodeTypes = { level: LevelNode };
 
 export default function LevelMap({
   classId,
   levels,
-  progress,
+  progress = [],
+  teacher = false,
 }: {
   classId: string;
   levels: Level[];
-  progress: Progress[];
+  progress?: Progress[];
+  teacher?: boolean;
 }) {
   const router = useRouter();
   const statusByLevel = useMemo(() => {
@@ -51,7 +70,7 @@ export default function LevelMap({
     id: l.id,
     type: "level",
     position: { x: (i % 3) * 200, y: Math.floor(i / 3) * 120 },
-    data: { label: l.title, status: statusByLevel(l.id), type: l.type },
+    data: { label: l.title, status: teacher ? l.status : statusByLevel(l.id), type: l.type, teacher },
   }));
 
   const edges: Edge[] = levels
@@ -64,19 +83,23 @@ export default function LevelMap({
     }));
 
   return (
-    <div className="card overflow-hidden p-0" style={{ height: "70vh" }}>
+    <div className="card overflow-hidden p-0" style={{ height: teacher ? "50vh" : "70vh" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
+        fitViewOptions={{ maxZoom: 1 }}
         onNodeClick={(_, node) => {
-          if (statusByLevel(node.id) !== "locked") {
+          if (teacher) {
+            router.push(`/teacher/classes/${classId}/levels/${node.id}`);
+          } else if (statusByLevel(node.id) !== "locked") {
             router.push(`/student/classes/${classId}/levels/${node.id}`);
           }
         }}
       >
         <Background color="#DCD5C2" />
+        <FitOnChange count={levels.length} />
       </ReactFlow>
     </div>
   );

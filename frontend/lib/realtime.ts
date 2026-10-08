@@ -18,6 +18,18 @@ export interface LevelCreatedEvent {
   ts: string;
 }
 
+export interface GenerationProgressEvent {
+  type: "generation_progress";
+  payload: {
+    class_id: string;
+    stage: "generating_levels" | "generating_questions" | "done" | "failed";
+    current: number;
+    total: number;
+    error_message: string | null;
+  };
+  ts: string;
+}
+
 export interface LeaderboardUpdatedEvent {
   type: "leaderboard_updated";
   payload: { class_id: string };
@@ -33,6 +45,7 @@ export interface LiveSessionUpdateEvent {
 export type RealtimeEvent =
   | MaterialProgressEvent
   | LevelCreatedEvent
+  | GenerationProgressEvent
   | LeaderboardUpdatedEvent
   | LiveSessionUpdateEvent;
 

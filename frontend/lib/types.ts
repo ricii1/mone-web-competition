@@ -10,6 +10,8 @@ export interface User {
 export type ClassVisibility = "public" | "private";
 export type ClassStatus = "draft" | "published";
 
+export type GenerationStatus = "idle" | "generating" | "done" | "failed";
+
 export interface SchoolClass {
   id: string;
   teacher_id: string;
@@ -19,6 +21,8 @@ export interface SchoolClass {
   status: ClassStatus;
   invite_code: string | null;
   is_example: boolean;
+  generation_status: GenerationStatus;
+  generation_error: string | null;
 }
 
 export type VectorStatus = "pending" | "processing" | "ready" | "failed";
