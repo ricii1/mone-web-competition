@@ -1,26 +1,31 @@
 import Link from "next/link";
 import AuthHero from "@/components/AuthHero";
+import { PlayIcon, UsersIcon } from "@/components/icons";
+import Mascot from "@/components/Mascot";
 
 export default function HomePage() {
   return (
-    <main className="grid min-h-screen md:grid-cols-2">
-      <div className="flex flex-col justify-center px-6 py-12 sm:px-12 md:px-16">
-        <div className="mx-auto w-full max-w-sm">
-          <h1 className="mb-1 font-display text-3xl">EduMap</h1>
-          <p className="mb-8 text-ink/60">Belajar lewat peta level yang dibuat dari materi gurumu.</p>
-          <div className="flex gap-3">
+    <main className="kid grid min-h-screen md:grid-cols-2">
+      <div className="flex flex-col justify-center px-5 py-10 sm:px-12 md:px-16">
+        <div className="mx-auto w-full max-w-md">
+          <Mascot mood="happy" size={110} className="bob mb-2 md:hidden" />
+          <h1 className="mb-2 text-5xl font-extrabold">EduMap</h1>
+          <p className="mb-8 text-xl text-ink/80">Belajar jadi seru! Ikuti peta level dari gurumu dan kumpulkan bintang.</p>
+          <div className="flex flex-col gap-4 sm:flex-row">
             <Link href="/login" className="btn-primary">
-              Masuk
+              <PlayIcon size={22} />
+              Ayo masuk
             </Link>
             <Link href="/register" className="btn-ghost">
-              Daftar
+              <UsersIcon size={22} />
+              Daftar baru
             </Link>
           </div>
         </div>
       </div>
 
       <div className="hidden md:block">
-        <AuthHero tagline="Satu peta, banyak level, dibuat dari materi yang gurumu unggah sendiri." />
+        <AuthHero tagline="Satu peta, banyak level. Siapa yang paling banyak bintang?" />
       </div>
     </main>
   );

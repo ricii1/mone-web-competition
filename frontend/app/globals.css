@@ -7,24 +7,35 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    line-height: 1.15;
   }
 
   :focus-visible {
-    outline: 2px solid theme("colors.highlight");
-    outline-offset: 2px;
+    outline: 3px solid theme("colors.sky.dark");
+    outline-offset: 3px;
+    border-radius: 0.5rem;
+  }
+
+  html {
+    background-color: theme("colors.paper");
   }
 
   body {
-    background-image: radial-gradient(rgb(27 42 65 / 0.07) 1px, transparent 1px);
-    background-size: 22px 22px;
+    background-color: theme("colors.paper");
+    /* Soft clouds and sun dots: one tiny inline SVG tile, no network request. */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='360' viewBox='0 0 520 360'%3E%3Cg fill='%233BA7F0' fill-opacity='.09'%3E%3Cpath d='M60 90a26 26 0 0 1 48-12 22 22 0 0 1 40 14 18 18 0 0 1-4 36H72a22 22 0 0 1-12-38z'/%3E%3Cpath d='M330 250a22 22 0 0 1 42-10 19 19 0 0 1 36 12 16 16 0 0 1-3 32h-62a20 20 0 0 1-13-34z'/%3E%3C/g%3E%3Cg fill='%23FFC83D' fill-opacity='.45'%3E%3Ccircle cx='250' cy='60' r='4'/%3E%3Ccircle cx='460' cy='140' r='3'/%3E%3Ccircle cx='150' cy='300' r='3'/%3E%3Ccircle cx='20' cy='200' r='2.5'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 520px 360px;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    min-height: 100vh;
   }
 
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
+      animation: none !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
@@ -32,241 +43,194 @@
 }
 
 @layer components {
+  /* Student-facing areas: big, easy-to-read text. */
+  .kid {
+    font-size: 1.125rem;
+    line-height: 1.6;
+  }
+  .kid .input-box,
+  .kid .input-rule {
+    font-size: 1.125rem;
+    min-height: 52px;
+  }
+
   .field {
     @apply flex flex-col gap-1.5;
   }
 
   .field-label {
-    @apply text-sm font-medium text-ink/75;
+    @apply text-base font-bold text-ink;
   }
 
-  .input-rule {
-    @apply w-full border-0 border-b border-rule bg-transparent px-0.5 py-2 text-ink placeholder:text-ink/35 focus:border-highlight focus:outline-none;
+  .input-rule,
+  .input-box {
+    @apply w-full rounded-2xl border-2 border-rule bg-white px-4 py-3 text-ink shadow-[inset_0_2px_0_0_rgb(27_42_65/0.05)] placeholder:text-ink/60 focus:border-sky focus:outline-none focus:ring-4 focus:ring-sky/25;
   }
 
   .ink-panel .input-rule {
-    @apply border-rule-dark text-chalk placeholder:text-chalk-dim focus:border-highlight;
+    @apply border-rule-dark text-chalk placeholder:text-chalk-dim;
   }
 
+  /* Chunky 3D buttons: thick bottom edge that presses down. */
+  .btn {
+    @apply inline-flex min-h-[48px] select-none items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-center font-display text-lg font-bold leading-tight transition-[transform,box-shadow,filter] duration-100 disabled:cursor-not-allowed disabled:opacity-50;
+    box-shadow: 0 4px 0 0 var(--edge);
+  }
+  .btn:hover:not(:disabled) {
+    filter: brightness(1.04);
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 0 var(--edge);
+  }
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg bg-highlight px-5 py-2.5 font-medium text-ink transition-colors hover:bg-highlight-dark disabled:cursor-not-allowed disabled:opacity-50;
+    @apply btn bg-highlight text-ink;
+    --edge: #c98f00;
+  }
+  .btn-green {
+    @apply btn bg-grass-dark text-white;
+    --edge: #1b6a38;
+  }
+  .btn-sky {
+    @apply btn bg-sky-dark text-white;
+    --edge: #14568d;
+  }
+  .btn-ghost {
+    @apply btn border-2 border-rule bg-white text-ink;
+    --edge: #d8ccab;
+  }
+  .btn-danger {
+    @apply btn border-2 border-coral bg-white text-coral-dark;
+    --edge: #f0b3ac;
   }
 
-  .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-lg border border-rule px-5 py-2.5 font-medium text-ink transition-colors hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-50;
+  .btn-sm {
+    @apply min-h-[44px] px-4 py-1.5 text-base;
   }
 
   .link-text {
-    @apply text-ink underline decoration-rule decoration-2 underline-offset-4 hover:decoration-highlight;
+    @apply inline-flex min-h-[48px] items-center font-bold text-sky-dark underline decoration-sky/40 decoration-2 underline-offset-4 hover:decoration-sky-dark;
   }
 
   .card {
-    @apply rounded-xl border border-rule bg-white/70 p-4 shadow-sm shadow-ink/5;
+    @apply rounded-2xl border-2 border-rule bg-white p-4;
+    box-shadow: 0 3px 0 0 #e6dcc0;
   }
 
   .surface {
-    @apply rounded-xl border border-rule bg-white/80 p-5 shadow-sm shadow-ink/5 sm:p-6;
+    @apply rounded-3xl border-2 border-rule bg-white p-5 sm:p-6;
+    box-shadow: 0 4px 0 0 #e6dcc0;
   }
 
   .card-link {
-    @apply transition-all hover:-translate-y-0.5 hover:border-ink/30 hover:shadow-md hover:shadow-ink/10;
+    @apply transition-[transform,box-shadow] duration-100 hover:-translate-y-0.5;
+  }
+  .card-link:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 0 #e6dcc0;
   }
 
+  .badge,
+  .badge-highlight,
+  .badge-success,
+  .badge-alert,
+  .badge-sky,
+  .badge-grape {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold leading-tight;
+  }
   .badge {
-    @apply inline-flex items-center rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink;
+    @apply bg-ink/10 text-ink;
   }
   .badge-highlight {
-    @apply inline-flex items-center rounded-full bg-highlight/25 px-2.5 py-0.5 text-xs font-medium text-ink;
+    @apply bg-highlight/40 text-ink;
   }
   .badge-success {
-    @apply inline-flex items-center rounded-full bg-correct/15 px-2.5 py-0.5 text-xs font-medium text-correct;
+    @apply bg-grass-soft text-correct-dark;
   }
   .badge-alert {
-    @apply inline-flex items-center rounded-full bg-alert/10 px-2.5 py-0.5 text-xs font-medium text-alert;
+    @apply bg-coral-soft text-alert;
   }
-
-  .input-box {
-    @apply w-full rounded-lg border border-rule bg-white px-3 py-2 text-ink placeholder:text-ink/40 focus:border-highlight focus:outline-none focus:ring-2 focus:ring-highlight/30;
+  .badge-sky {
+    @apply bg-sky-soft text-sky-dark;
   }
-
-  .btn-danger {
-    @apply inline-flex items-center justify-center rounded-lg border border-alert/30 px-5 py-2.5 font-medium text-alert transition-colors hover:bg-alert/10 disabled:cursor-not-allowed disabled:opacity-50;
+  .badge-grape {
+    @apply bg-grape-soft text-grape-dark;
   }
 
   .tagline-fade {
     animation: tagline-fade-in 450ms ease both;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .tagline-fade {
-      animation: none;
-    }
+  /* Friendly feedback panels. */
+  .note {
+    @apply flex items-start gap-3 rounded-2xl border-2 p-4 font-semibold;
   }
 }
 
 @keyframes tagline-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
-/* Auth hero motion graphic: one 10s loop, driven purely by CSS (no JS, no extra dependency).
-   Without motion, the base styles show the finished map. */
-.hero-node,
-.hero-node circle,
-.hero-burst,
-.hero-pulse,
-.hero-player,
-.hero-xp {
-  transform-box: fill-box;
-  transform-origin: center;
+/* ---- Motion: transform/opacity only, and only when the user allows motion. ---- */
+.bob,
+.bounce-bubble,
+.confetti-piece,
+.node-ring,
+.star-pop,
+.wait-dot,
+.twinkle {
+  animation: none;
 }
-.hero-player,
-.hero-burst,
-.hero-pulse,
-.hero-xp {
-  opacity: 0;
-}
-.hero-boss-fill {
-  fill: #e3a23c;
-}
-.hero-trail {
-  stroke-dasharray: 100;
-  stroke-dashoffset: 0;
+.confetti-piece {
+  display: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .hero-stage {
-    animation: hero-stage 10s linear infinite;
+  .bob { animation: bob 3.2s ease-in-out infinite; }
+  .bounce-bubble { animation: bubble-bounce 1.1s ease-in-out infinite; }
+  .node-ring { animation: node-ring 2s ease-out infinite; }
+  .star-pop { animation: star-pop 520ms cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+  .twinkle { animation: twinkle 2.4s ease-in-out infinite; }
+  .wait-dot { animation: wait-dot 1.2s ease-in-out infinite; }
+  .confetti-piece {
+    display: block;
+    animation: confetti-fall 1.8s ease-in both;
+    animation-delay: var(--d, 0ms);
   }
-  .hero-trail {
-    animation: hero-trail 10s linear infinite;
-  }
-  .hero-player {
-    offset-path: path("M40,220 L130,160 L100,80 L200,40");
-    animation:
-      hero-travel 10s linear infinite,
-      hero-player-vis 10s linear infinite;
-  }
-  .hero-node-a { animation: hero-pop-a 10s ease-out infinite; }
-  .hero-node-b { animation: hero-pop-b 10s ease-out infinite; }
-  .hero-node-c { animation: hero-pop-c 10s ease-out infinite; }
-  .hero-node-d { animation: hero-pop-d 10s ease-out infinite; }
-  .hero-pulse { animation: hero-pulse 1.8s ease-out 3.6s infinite; }
-  .hero-boss-fill { animation: hero-boss-fill 10s linear infinite; }
-  .hero-burst { animation: hero-burst 10s ease-out infinite; }
-  .hero-xp-b { animation: hero-xp-b 10s ease-out infinite; }
-  .hero-xp-c { animation: hero-xp-c 10s ease-out infinite; }
-  .hero-float-a { animation: hero-float 7s ease-in-out infinite; }
-  .hero-float-b { animation: hero-float 9s ease-in-out -3s infinite; }
-  .hero-float-c { animation: hero-float 11s ease-in-out -6s infinite; }
-  .hero-dot { opacity: 0.35; }
+  .node-appear { animation: node-appear 0.3s ease-out; }
 }
 
-@keyframes hero-stage {
-  0% { opacity: 0; }
-  3%, 92% { opacity: 1; }
-  99%, 100% { opacity: 0; }
-}
-@keyframes hero-trail {
-  0% { stroke-dashoffset: 100; }
-  60%, 100% { stroke-dashoffset: 0; }
-}
-@keyframes hero-travel {
-  0% { offset-distance: 0%; }
-  60%, 100% { offset-distance: 100%; }
-}
-@keyframes hero-player-vis {
-  0%, 1% { opacity: 0; }
-  3%, 60% { opacity: 1; }
-  64%, 100% { opacity: 0; }
-}
-@keyframes hero-pop-a {
-  0% { opacity: 0; transform: scale(0.2); }
-  4%, 100% { opacity: 1; transform: scale(1); }
-}
-@keyframes hero-pop-b {
-  0%, 20% { opacity: 0; transform: scale(0.2); }
-  26%, 100% { opacity: 1; transform: scale(1); }
-}
-@keyframes hero-pop-c {
-  0%, 36% { opacity: 0; transform: scale(0.2); }
-  42%, 100% { opacity: 1; transform: scale(1); }
-}
-@keyframes hero-pop-d {
-  0%, 56% { opacity: 0; transform: scale(0.2); }
-  62%, 100% { opacity: 1; transform: scale(1); }
-}
-@keyframes hero-boss-fill {
-  0%, 68% { fill: #3a4c66; }
-  72%, 100% { fill: #e3a23c; }
-}
-@keyframes hero-pulse {
-  0% { opacity: 0.55; transform: scale(1); }
-  100% { opacity: 0; transform: scale(2.4); }
-}
-@keyframes hero-burst {
-  0%, 68% { opacity: 0; transform: scale(1); }
-  70% { opacity: 0.8; transform: scale(1); }
-  82%, 100% { opacity: 0; transform: scale(3.2); }
-}
-@keyframes hero-xp-b {
-  0%, 24% { opacity: 0; transform: translateY(0); }
-  27% { opacity: 1; }
-  38%, 100% { opacity: 0; transform: translateY(-16px); }
-}
-@keyframes hero-xp-c {
-  0%, 40% { opacity: 0; transform: translateY(0); }
-  43% { opacity: 1; }
-  54%, 100% { opacity: 0; transform: translateY(-16px); }
-}
-@keyframes hero-float {
+@keyframes bob {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
-
-@keyframes node-appear {
-  from {
-    opacity: 0;
-    transform: scale(0.85);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+@keyframes bubble-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
-
-.node-appear {
-  animation: node-appear 0.3s ease-out;
+@keyframes node-ring {
+  0% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.5); }
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .node-appear {
-    animation: none;
-  }
-}
-
-/* Current level on the student map: a soft ring pulse, off for reduced motion. */
-@media (prefers-reduced-motion: no-preference) {
-  .node-current {
-    animation: node-pulse 2.2s ease-out infinite;
-  }
-  .confetti-dot {
-    animation: confetti-pop 900ms ease-out both;
-  }
-}
-
-@keyframes node-pulse {
-  0% { box-shadow: 0 0 0 0 rgb(227 162 60 / 0.55); }
-  100% { box-shadow: 0 0 0 14px rgb(227 162 60 / 0); }
-}
-
-@keyframes confetti-pop {
-  from { opacity: 0; transform: scale(0.2) translateY(10px); }
+@keyframes star-pop {
+  from { opacity: 0; transform: scale(0.2) rotate(-30deg); }
   to { opacity: 1; transform: none; }
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+@keyframes wait-dot {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-6px); }
+}
+@keyframes confetti-fall {
+  0% { opacity: 0; transform: translate3d(0, -20px, 0) rotate(0deg); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate3d(var(--x, 0px), 220px, 0) rotate(var(--r, 240deg)); }
+}
+@keyframes node-appear {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
 }

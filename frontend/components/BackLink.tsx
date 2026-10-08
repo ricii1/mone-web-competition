@@ -1,15 +1,14 @@
 import Link from "next/link";
+import { ArrowLeftIcon } from "@/components/icons";
 
 export default function BackLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <Link
       href={href}
-      className="-ml-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+      className="-ml-2 inline-flex min-h-[48px] max-w-full items-center gap-2 rounded-2xl px-3 text-base font-bold text-sky-dark transition-colors hover:bg-sky-soft"
     >
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path d="M10 3 5 8l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      {children}
+      <ArrowLeftIcon size={20} className="shrink-0" />
+      <span className="min-w-0 truncate">{children}</span>
     </Link>
   );
 }

@@ -1,70 +1,56 @@
-const PATH = "M40,220 L130,160 L100,80 L200,40";
+import Mascot from "@/components/Mascot";
 
-const DOTS = [
-  { cx: 30, cy: 40, r: 2, cls: "hero-float-a" },
-  { cx: 225, cy: 110, r: 2.5, cls: "hero-float-b" },
-  { cx: 160, cy: 235, r: 2, cls: "hero-float-c" },
-  { cx: 60, cy: 130, r: 1.5, cls: "hero-float-b" },
-  { cx: 235, cy: 205, r: 1.5, cls: "hero-float-a" },
-  { cx: 150, cy: 20, r: 2, cls: "hero-float-c" },
+const STOPS = [
+  { x: 36, y: 120, fill: "#3FBF6A", label: "1" },
+  { x: 108, y: 76, fill: "#3FBF6A", label: "2" },
+  { x: 188, y: 112, fill: "#FFC83D", label: "3" },
+  { x: 262, y: 56, fill: "#9B6BFF", label: "" },
 ];
 
 export default function AuthHero({ tagline }: { tagline: string }) {
   return (
-    <div className="ink-panel flex h-full flex-col justify-between overflow-hidden bg-ink px-10 py-12 text-chalk">
-      <p className="font-display text-xl">EduMap</p>
+    <div className="ink-panel relative flex h-full flex-col justify-between overflow-hidden bg-ink px-10 py-10 text-chalk">
+      <div aria-hidden="true" className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-sky/20" />
+      <div aria-hidden="true" className="absolute -bottom-24 -left-20 h-72 w-72 rounded-full bg-grape/20" />
 
-      <svg viewBox="0 0 260 260" className="w-full max-w-sm self-center" aria-hidden="true">
-        {DOTS.map((d, i) => (
-          <circle key={i} cx={d.cx} cy={d.cy} r={d.r} fill="#B9C2CE" className={`hero-dot ${d.cls}`} />
-        ))}
+      <p className="relative flex items-center gap-2 font-display text-2xl font-extrabold">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-highlight text-ink">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.1l-5.6 3.1 1.1-6.3L2.9 9.5l6.3-.9z" />
+          </svg>
+        </span>
+        EduMap
+      </p>
 
-        <g className="hero-stage">
-          <path d={PATH} fill="none" stroke="#3A4C66" strokeWidth="2" strokeDasharray="1 10" strokeLinecap="round" />
+      <div className="relative flex flex-col items-center gap-2">
+        <Mascot mood="cheering" size={230} className="bob" />
+        <svg viewBox="0 0 300 170" className="w-full max-w-sm" aria-hidden="true">
           <path
-            d={PATH}
-            pathLength={100}
+            d="M36 120 Q72 60 108 76 T188 112 T262 56"
             fill="none"
-            stroke="#E3A23C"
-            strokeWidth="2.5"
+            stroke="#FFC83D"
+            strokeWidth="5"
+            strokeDasharray="2 11"
             strokeLinecap="round"
-            strokeLinejoin="round"
-            className="hero-trail"
+            opacity=".8"
           />
+          {STOPS.map((s, i) => (
+            <g key={i} className={i === 2 ? "twinkle" : undefined} style={{ transformBox: "fill-box", transformOrigin: "center" }}>
+              <circle cx={s.x} cy={s.y + 4} r="19" fill="#000" opacity=".25" />
+              <circle cx={s.x} cy={s.y} r="19" fill={s.fill} stroke="#fff" strokeWidth="3" />
+              {s.label ? (
+                <text x={s.x} y={s.y + 6} textAnchor="middle" fontSize="18" fontWeight="800" fill="#1B2A41" fontFamily="sans-serif">
+                  {s.label}
+                </text>
+              ) : (
+                <path d={`M${s.x - 9} ${s.y + 7}l-2-14 6 5 5-9 5 9 6-5-2 14z`} fill="#fff" />
+              )}
+            </g>
+          ))}
+        </svg>
+      </div>
 
-          <g className="hero-node hero-node-a">
-            <circle cx="40" cy="220" r="10" fill="#3F7D58" />
-            <text x="40" y="202" textAnchor="middle" fill="#B9C2CE" fontSize="11">Mulai</text>
-          </g>
-
-          <g className="hero-node hero-node-b">
-            <circle cx="130" cy="160" r="10" fill="#3F7D58" />
-            <text x="130" y="142" textAnchor="middle" fill="#B9C2CE" fontSize="11">Bab 1</text>
-          </g>
-          <text x="130" y="150" textAnchor="middle" fill="#E3A23C" fontSize="10" fontWeight="700" className="hero-xp hero-xp-b">
-            +100
-          </text>
-
-          <g className="hero-node hero-node-c">
-            <circle cx="100" cy="80" r="10" fill="#E3A23C" className="hero-pulse" />
-            <circle cx="100" cy="80" r="10" fill="#E3A23C" />
-            <text x="100" y="62" textAnchor="middle" fill="#B9C2CE" fontSize="11">Bab 2</text>
-          </g>
-          <text x="100" y="70" textAnchor="middle" fill="#E3A23C" fontSize="10" fontWeight="700" className="hero-xp hero-xp-c">
-            +100
-          </text>
-
-          <g className="hero-node hero-node-d">
-            <circle cx="200" cy="40" r="10" fill="#E3A23C" className="hero-burst" />
-            <circle cx="200" cy="40" r="10" className="hero-boss-fill" />
-            <text x="200" y="22" textAnchor="middle" fill="#B9C2CE" fontSize="11">Boss</text>
-          </g>
-
-          <circle r="5" fill="#F3EFE3" className="hero-player" />
-        </g>
-      </svg>
-
-      <p key={tagline} className="tagline-fade max-w-xs text-balance font-display text-2xl leading-snug">
+      <p key={tagline} className="tagline-fade relative max-w-sm text-balance font-display text-3xl font-bold leading-snug">
         {tagline}
       </p>
     </div>

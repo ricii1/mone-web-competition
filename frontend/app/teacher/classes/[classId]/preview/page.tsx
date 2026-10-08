@@ -3,8 +3,10 @@
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { MapIcon } from "@/components/icons";
 import PageShell from "@/components/PageShell";
 import { ApiError, api } from "@/lib/api";
+import { useClassTitle } from "@/lib/useClassTitle";
 import type { Level } from "@/lib/types";
 
 const LevelMap = dynamic(() => import("@/components/LevelMap"), { ssr: false });
@@ -19,23 +21,24 @@ export default function TeacherClassPreviewPage() {
     api
       .listLevels(classId)
       .then(setLevels)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Gagal memuat level"))
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Level belum bisa dimuat. Coba lagi ya."))
       .finally(() => setLoading(false));
   }, [classId]);
 
+  const classTitle = useClassTitle(classId);
   const editorHref = `/teacher/classes/${classId}`;
 
   return (
     <PageShell
-      back={{ href: editorHref, label: "Kembali ke class" }}
-      crumbs={[{ label: "Class saya", href: "/teacher" }, { label: "Class", href: editorHref }, { label: "Pratinjau" }]}
-      title="Pratinjau sebagai murid"
-      subtitle="Peta level seperti yang dilihat murid. Semua level terbuka dan tidak ada progres yang disimpan."
+      back={{ href: editorHref, label: classTitle ? `Kembali ke ${classTitle}` : "Kembali ke class" }}
+      icon={<MapIcon size={28} />}
+      title="Lihat seperti murid"
+      subtitle="Ini peta yang dilihat murid. Semua level terbuka dan skor tidak disimpan."
     >
-      {loading && <p className="text-sm text-ink/60">Memuat peta...</p>}
-      {error && <p className="mb-4 text-sm text-alert">{error}</p>}
+      {loading && <p role="status" className="text-ink/75">Memuat peta...</p>}
+      {error && <p role="alert" className="note mb-4 border-coral bg-coral-soft text-alert">{error}</p>}
       {!loading && !error && levels.length === 0 && (
-        <p className="surface text-sm text-ink/65">Belum ada level untuk dipratinjau. Generate level terlebih dahulu.</p>
+        <p className="surface text-ink/75">Belum ada level. Buat level dulu di halaman kelas.</p>
       )}
       {levels.length > 0 && (
         <LevelMap classId={classId} levels={levels} preview height="clamp(420px, 70vh, 760px)" />

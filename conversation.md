@@ -125,3 +125,18 @@ agent (debugging): "uvicorn `--reload` macet saat reload karena memicu migrasi f
 user: "lalu coba dari guru buatkan tombol preview"
 
 agent: "Ditambah fitur pratinjau guru: tombol 'Pratinjau' di halaman class (peta seperti yang dilihat murid, semua level terbuka) dan 'Pratinjau sebagai murid' di editor level. Halaman level murid diekstrak jadi komponen bersama `LevelPlayer` (mode `student` | `preview`); di mode pratinjau soal dinilai lokal di browser (guru memang sudah menerima `correct_answer`), tidak memanggil API submit sehingga tidak ada progres/attempt/leaderboard yang berubah, ada banner 'Pratinjau guru' dan opsi 'Sertakan soal draft'. Diverifikasi di browser: peta pratinjau, kuis, dan hasil (skor 40% dari pilihan pertama tiap soal) tampil benar. Lint dan tsc bersih."
+
+## 2026-10-09
+
+**00:50**
+user: "ketika saya Simpan kelas example muncul 'Bukan pemilik class ini' ... kalau saya rasa gapapa biar bisa edit aja" (sesi sebelumnya, dicatat di sini)
+
+agent (debugging): "Bukan disengaja dan bukan bug kode: PATCH level oleh pemilik class contoh mengembalikan 200. Error 403 terjadi karena token di `localStorage` browser sempat tertimpa token akun uji saat verifikasi UI (origin `localhost:3000` berbagi localStorage antar tab) sehingga halaman milik pengguna terbuka dengan token orang lain. Class contoh tetap bisa diedit; hanya publish yang diblokir. Perbaikan proses: verifikasi UI berikutnya memakai Chrome headless dengan profil sementara, tidak menyentuh sesi pengguna."
+
+**01:10**
+user: "materinya masih terkesan sangat ringkas ... bisa jadi semacam artikel 2-3 menit?" → memilih 'AI susun ulang dari PDF'; lalu "penggunanya anak SD ... UI lebih fun, buat agent khusus"; "tambahkan ke informasi bahwa penggunanya guru SD dan murid SD"; "luncurkan 2 agent paralel, commit setelah selesai"
+
+agent: "AGENTS.md diperbarui: pengguna = guru SD dan murid SD, alur level jadi materi detail → rangkuman → kuis, prinsip 'Cocok untuk anak SD' (artikel ±450-650 kata). Dua agent paralel: (backend) migrasi 0006 `levels.content`, prompt `lesson_level.txt` (satu panggilan per level menghasilkan materi + rangkuman + poin penting; token output naik, jumlah panggilan tetap), mock LLM, class contoh diganti 'IPA Kelas 4 - Siklus Air' (3 level 465-499 kata + boss, sumber tiruan), dev DB di-refresh tanpa menghapus akun; (frontend) sistem visual ramah anak (font Baloo 2/Nunito, tombol 3D, maskot burung hantu SVG, ±45 ikon inline, bintang 1-3, konfeti CSS, ubin jawaban ala Kahoot, podium leaderboard), renderer Markdown aman, halaman materi dengan waktu baca dan bar progres baca, editor guru tab 'Materi', verifikasi semua halaman di 1440 dan 390 px. 84 test backend lolos, lint/tsc frontend bersih."
+
+**01:40**
+agent (debugging): "Selama sesi, API sempat time out total setiap file `.py` berubah: `uvicorn --reload` menunggu koneksi WebSocket yang masih terbuka ('Waiting for background tasks to complete') sehingga reload tidak pernah selesai. Diperbaiki dengan menjalankan uvicorn memakai `--timeout-graceful-shutdown 2`. Worker arq tidak reload otomatis, jadi harus di-restart manual setelah perubahan kode job/prompt. Satu kesalahan proses: `pkill -f` dengan pola yang cocok dengan teks perintah sendiri membunuh shell (exit 144); dipakai pola `[a]rq`."

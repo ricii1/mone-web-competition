@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
-import { Fraunces, Work_Sans } from "next/font/google";
+import { Baloo_2, Nunito } from "next/font/google";
 import "./globals.css";
 
-const display = Fraunces({
+const display = Baloo_2({
   subsets: ["latin"],
-  weight: ["500", "600"],
+  weight: ["600", "700", "800"],
   variable: "--font-display",
 });
 
-const body = Work_Sans({
+const body = Nunito({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "600", "700", "800"],
   variable: "--font-body",
 });
 
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id" className={`${display.variable} ${body.variable}`}>
-      <body className="bg-paper font-sans text-ink">{children}</body>
+      <body className="font-sans text-ink">{children}</body>
     </html>
   );
 }

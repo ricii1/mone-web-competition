@@ -52,6 +52,7 @@ export interface Level {
   type: LevelType;
   order_index: number;
   summary: string | null;
+  content: string | null;
   key_points: string[];
   sources: LevelSource[];
   status: LevelStatus;

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Avatar from "@/components/Avatar";
+import { LogoutIcon, StarIcon } from "@/components/icons";
 import { api } from "@/lib/api";
 import { clearToken } from "@/lib/auth";
 import type { User } from "@/lib/types";
@@ -22,22 +24,27 @@ export default function AppHeader({ homeHref }: { homeHref: string }) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-rule bg-paper/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-30 border-b-2 border-rule bg-paper/95 backdrop-blur">
+      <div className="mx-auto flex min-h-[64px] max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
-          <Link href={homeHref} className="flex items-center gap-2 font-display text-xl">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-highlight" aria-hidden="true" />
-            EduMap
+          <Link href={homeHref} className="flex min-h-[48px] items-center gap-2 font-display text-2xl font-extrabold">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-highlight text-ink shadow-[0_3px_0_0_#c98f00]">
+              <StarIcon size={22} />
+            </span>
+            <span className="hidden min-[400px]:inline">EduMap</span>
           </Link>
-          <span className="badge-highlight">{roleLabel}</span>
+          <span className="badge-sky">{roleLabel}</span>
         </div>
-        <div className="flex min-w-0 items-center gap-3 text-sm">
-          {user && <span className="hidden max-w-[12rem] truncate text-ink/75 sm:block">{user.name}</span>}
-          <button
-            onClick={handleLogout}
-            className="inline-flex min-h-[40px] items-center rounded-lg border border-rule px-3 font-medium text-ink transition-colors hover:border-ink/40"
-          >
-            Keluar
+        <div className="flex min-w-0 items-center gap-3">
+          {user && (
+            <span className="flex min-w-0 items-center gap-2 font-bold">
+              <Avatar name={user.name} size={36} />
+              <span className="hidden max-w-[12rem] truncate sm:block">{user.name}</span>
+            </span>
+          )}
+          <button onClick={handleLogout} className="btn-ghost" aria-label="Keluar">
+            <LogoutIcon size={20} />
+            <span className="hidden sm:inline">Keluar</span>
           </button>
         </div>
       </div>

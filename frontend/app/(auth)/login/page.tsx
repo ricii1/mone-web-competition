@@ -55,16 +55,15 @@ export default function LoginPage() {
 
   return (
     <>
-      <h1 className="mb-1 font-display text-3xl">Masuk</h1>
-      <p className="mb-8 text-ink/60">Lanjutkan belajar atau mengelola kelasmu.</p>
+      <h1 className="mb-1 text-4xl">Halo! Ayo masuk</h1>
+      <p className="mb-6 text-ink/75">Lanjutkan belajar atau urus kelasmu.</p>
 
       {mismatch ? (
-        <div className="flex flex-col gap-4 rounded-sm border border-highlight/40 bg-highlight/10 p-4">
-          <p className="text-sm text-ink">
-            Akun ini terdaftar sebagai <strong>{ROLE_LABEL[mismatch.role]}</strong>, bukan{" "}
-            {ROLE_LABEL[expectedRole]}.
+        <div className="flex flex-col gap-4 rounded-2xl border-2 border-highlight bg-highlight/20 p-4">
+          <p className="text-base text-ink">
+            Akun ini akun <strong>{ROLE_LABEL[mismatch.role]}</strong>, bukan akun {ROLE_LABEL[expectedRole]}.
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <button onClick={continueAsActualRole} className="btn-primary">
               Lanjut sebagai {ROLE_LABEL[mismatch.role]}
             </button>
@@ -76,7 +75,7 @@ export default function LoginPage() {
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="field">
-            <span className="field-label">Masuk sebagai</span>
+            <span className="field-label">Kamu siapa?</span>
             <RoleChooser value={expectedRole} onChange={setExpectedRole} />
           </div>
           <div className="field">
@@ -100,17 +99,21 @@ export default function LoginPage() {
             required
             autoComplete="current-password"
           />
-          {error && <p className="text-sm text-alert">{error}</p>}
-          <button type="submit" disabled={loading} className="btn-primary mt-2">
-            {loading ? "Memproses..." : `Masuk sebagai ${ROLE_LABEL[expectedRole]}`}
+          {error && (
+            <p role="alert" className="note border-coral bg-coral-soft text-alert">
+              {error}
+            </p>
+          )}
+          <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">
+            {loading ? "Tunggu sebentar..." : `Masuk sebagai ${ROLE_LABEL[expectedRole]}`}
           </button>
         </form>
       )}
 
-      <p className="mt-8 text-sm text-ink/70">
-        Belum punya akun?{" "}
+      <p className="mt-6 flex min-h-[48px] items-center gap-2 text-base text-ink/75">
+        Belum punya akun?
         <Link href="/register" className="link-text">
-          Daftar
+          Daftar di sini
         </Link>
       </p>
     </>

@@ -1,5 +1,4 @@
 import BackLink from "@/components/BackLink";
-import Breadcrumb, { type Crumb } from "@/components/Breadcrumb";
 
 type Width = "narrow" | "medium" | "wide";
 
@@ -14,9 +13,12 @@ interface PageShellProps {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
+  /** Round icon chip shown before the title. */
+  icon?: React.ReactNode;
   back?: { href: string; label: string };
-  crumbs?: Crumb[];
   width?: Width;
+  /** Big friendly text for pages used by students. */
+  kid?: boolean;
 }
 
 export default function PageShell({
@@ -24,25 +26,32 @@ export default function PageShell({
   title,
   subtitle,
   actions,
+  icon,
   back,
-  crumbs,
   width = "wide",
+  kid = false,
 }: PageShellProps) {
   return (
-    <main className={`mx-auto w-full ${WIDTH[width]} px-4 pb-16 pt-4 sm:px-6 lg:px-8`}>
-      {(back || crumbs) && (
-        <div className="mb-3 flex flex-wrap items-center gap-x-4">
-          {back && <BackLink href={back.href}>{back.label}</BackLink>}
-          {crumbs && <Breadcrumb items={crumbs} />}
+    <main className={`mx-auto w-full ${WIDTH[width]} px-4 pb-16 pt-3 sm:px-6 lg:px-8 ${kid ? "kid" : ""}`}>
+      {back && (
+        <div className="mb-2">
+          <BackLink href={back.href}>{back.label}</BackLink>
         </div>
       )}
       {(title || actions) && (
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            {title && <h1 className="font-display text-2xl sm:text-3xl">{title}</h1>}
-            {subtitle && <div className="mt-1 text-ink/65">{subtitle}</div>}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3">
+            {icon && (
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-highlight text-ink shadow-[0_3px_0_0_#c98f00]">
+                {icon}
+              </span>
+            )}
+            <div className="min-w-0">
+              {title && <h1 className="text-3xl sm:text-4xl">{title}</h1>}
+              {subtitle && <div className="mt-1 text-ink/75">{subtitle}</div>}
+            </div>
           </div>
-          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+          {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
         </div>
       )}
       {children}

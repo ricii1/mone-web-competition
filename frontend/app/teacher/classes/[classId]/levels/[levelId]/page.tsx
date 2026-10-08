@@ -5,10 +5,13 @@ import PageShell from "@/components/PageShell";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
-import { formatSource } from "@/lib/levels";
+import { CheckIcon, ClockIcon, EyeIcon, LightbulbIcon, MapIcon, PencilIcon, PlusIcon, ScrollIcon, TrashIcon } from "@/components/icons";
+import Markdown from "@/components/Markdown";
+import { countWords, formatSource, readMinutes } from "@/lib/levels";
+import { useClassTitle } from "@/lib/useClassTitle";
 import type { Level, Question } from "@/lib/types";
 
-type Tab = "summary" | "questions";
+type Tab = "material" | "questions";
 
 function errMsg(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback;
@@ -16,14 +19,18 @@ function errMsg(err: unknown, fallback: string): string {
 
 export default function TeacherLevelPage() {
   const { classId, levelId } = useParams<{ classId: string; levelId: string }>();
+  const classTitle = useClassTitle(classId);
+  const backLabel = classTitle ? `Kembali ke ${classTitle}` : "Kembali ke class";
   const [level, setLevel] = useState<Level | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [tab, setTab] = useState<Tab>("summary");
+  const [tab, setTab] = useState<Tab>("material");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
   const [summary, setSummary] = useState("");
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -33,6 +40,7 @@ export default function TeacherLevelPage() {
   const applyLevel = useCallback((l: Level) => {
     setLevel(l);
     setTitle(l.title);
+    setContent(l.content ?? "");
     setSummary(l.summary ?? "");
     setKeyPoints(l.key_points ?? []);
   }, []);
@@ -52,7 +60,7 @@ export default function TeacherLevelPage() {
         applyLevel(found);
         setQuestions(qs);
       })
-      .catch((err) => setError(errMsg(err, "Gagal memuat level")))
+      .catch((err) => setError(errMsg(err, "Level belum bisa dimuat. Coba lagi ya.")))
       .finally(() => setLoading(false));
   }, [classId, levelId, applyLevel]);
 
@@ -62,7 +70,7 @@ export default function TeacherLevelPage() {
 
   function selectTab(next: Tab) {
     setTab(next);
-    window.history.replaceState(null, "", next === "questions" ? "#soal" : "#rangkuman");
+    window.history.replaceState(null, "", next === "questions" ? "#soal" : "#materi");
   }
 
   async function saveSummary() {
@@ -72,13 +80,14 @@ export default function TeacherLevelPage() {
     try {
       const updated = await api.updateLevel(levelId, {
         title: title.trim(),
+        content,
         summary,
         key_points: keyPoints.map((p) => p.trim()).filter(Boolean),
       });
       applyLevel(updated);
       setSaved(true);
     } catch (err) {
-      setSaveError(errMsg(err, "Gagal menyimpan"));
+      setSaveError(errMsg(err, "Belum tersimpan. Coba lagi ya."));
     } finally {
       setSaving(false);
     }
@@ -93,39 +102,43 @@ export default function TeacherLevelPage() {
       });
       setLevel((prev) => (prev ? { ...prev, status: updated.status } : prev));
     } catch (err) {
-      setHeaderError(errMsg(err, "Gagal mengubah status level"));
+      setHeaderError(errMsg(err, "Status level belum bisa diubah."));
     }
   }
 
   if (loading) {
     return (
-      <PageShell back={{ href: `/teacher/classes/${classId}`, label: "Kembali ke class" }}>
-        <p className="text-sm text-ink/60">Memuat level...</p>
+      <PageShell back={{ href: `/teacher/classes/${classId}`, label: backLabel }}>
+        <p role="status" className="text-ink/75">Memuat level...</p>
       </PageShell>
     );
   }
   if (error || !level) {
     return (
-      <PageShell back={{ href: `/teacher/classes/${classId}`, label: "Kembali ke class" }}>
-        <p className="text-sm text-alert">{error ?? "Level tidak ditemukan"}</p>
+      <PageShell back={{ href: `/teacher/classes/${classId}`, label: backLabel }}>
+        <p role="alert" className="note border-coral bg-coral-soft text-alert">{error ?? "Level tidak ditemukan"}</p>
       </PageShell>
     );
   }
 
+  const words = countWords(content);
+  const wordWarning =
+    content.trim() === ""
+      ? null
+      : words < 250
+        ? "Artikel agak pendek. Sekitar 450 sampai 650 kata biasanya pas untuk murid SD."
+        : words > 900
+          ? "Artikel cukup panjang. Coba dipersingkat agar murid tidak bosan."
+          : null;
   const approvedCount = questions.filter((q) => q.status === "approved").length;
 
   return (
     <PageShell
-      back={{ href: `/teacher/classes/${classId}`, label: "Kembali ke class" }}
-      crumbs={[
-        { label: "Class saya", href: "/teacher" },
-        { label: "Class", href: `/teacher/classes/${classId}` },
-        { label: level.title },
-      ]}
+      back={{ href: `/teacher/classes/${classId}`, label: backLabel }}
     >
       <div className="surface mb-6">
         <label htmlFor="level-title" className="field-label">
-          Judul level
+          Nama level
         </label>
         <input
           id="level-title"
@@ -133,34 +146,35 @@ export default function TeacherLevelPage() {
           onChange={(e) => setTitle(e.target.value)}
           className="input-box mb-3 font-display text-xl"
         />
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className={level.type === "boss" ? "badge-alert" : "badge"}>
-            {level.type === "boss" ? "Boss" : "Lesson"}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={level.type === "boss" ? "badge-grape" : "badge"}>
+            {level.type === "boss" ? "Level bos" : "Level belajar"}
           </span>
           <span className={level.status === "approved" ? "badge-success" : "badge"}>
-            {level.status === "approved" ? "Approved" : "Draft"}
+            {level.status === "approved" ? "Disetujui" : "Draft"}
           </span>
           <button
             onClick={toggleApprove}
-            className={`${level.status === "approved" ? "btn-ghost" : "btn-primary"} px-3 py-1 text-xs`}
+            className={`${level.status === "approved" ? "btn-ghost" : "btn-primary"} btn-sm`}
           >
-            {level.status === "approved" ? "Batalkan approve" : "Approve level"}
+            {level.status === "approved" ? <>Batalkan persetujuan</> : <><CheckIcon size={20} />Setujui level</>}
           </button>
-          <Link href={`/teacher/classes/${classId}/levels/${levelId}/preview`} className="btn-ghost px-3 py-1 text-xs">
-            Pratinjau sebagai murid
+          <Link href={`/teacher/classes/${classId}/levels/${levelId}/preview`} className="btn-ghost btn-sm">
+            <MapIcon size={20} />
+            Lihat seperti murid
           </Link>
         </div>
         {headerError && (
-          <p role="alert" className="mt-2 text-sm text-alert">
+          <p role="alert" className="mt-2 text-alert">
             {headerError}
           </p>
         )}
       </div>
 
-      <div role="tablist" className="mb-6 flex gap-4 border-b border-ink/15">
+      <div role="tablist" className="mb-6 flex gap-2 border-b-4 border-rule">
         {(
           [
-            ["summary", "Rangkuman"],
+            ["material", "Materi"],
             ["questions", "Soal"],
           ] as const
         ).map(([key, label]) => (
@@ -171,8 +185,8 @@ export default function TeacherLevelPage() {
             aria-selected={tab === key}
             aria-controls={`panel-${key}`}
             onClick={() => selectTab(key)}
-            className={`-mb-px min-h-[44px] border-b-2 px-2 text-sm ${
-              tab === key ? "border-highlight font-semibold" : "border-transparent text-ink/65 hover:text-ink"
+            className={`-mb-1 min-h-[48px] border-b-4 px-4 font-display text-lg font-bold ${
+              tab === key ? "border-sky-dark text-sky-dark" : "border-transparent text-ink/75 hover:text-ink"
             }`}
           >
             {label}
@@ -180,12 +194,62 @@ export default function TeacherLevelPage() {
         ))}
       </div>
 
-      {tab === "summary" ? (
-        <section role="tabpanel" id="panel-summary" aria-labelledby="tab-summary" className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
+      {tab === "material" ? (
+        <section role="tabpanel" id="panel-material" aria-labelledby="tab-material" className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
           <div className="surface flex flex-col gap-6">
           <div>
-            <label htmlFor="level-summary" className="field-label">
-              Ringkasan materi
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor="level-content" className="field-label flex items-center gap-2">
+                <PencilIcon size={20} />
+                Artikel materi
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPreview((v) => !v)}
+                aria-pressed={showPreview}
+                className="btn-ghost btn-sm"
+              >
+                <EyeIcon size={20} />
+                {showPreview ? "Kembali menulis" : "Pratinjau"}
+              </button>
+            </div>
+            {showPreview ? (
+              <div className="min-h-[200px] rounded-2xl border-2 border-dashed border-sky bg-sky-soft/40 p-4 sm:p-6">
+                {content.trim() ? (
+                  <Markdown source={content} />
+                ) : (
+                  <p className="text-ink/75">Artikel masih kosong. Tulis dulu, lalu lihat pratinjaunya di sini.</p>
+                )}
+              </div>
+            ) : (
+              <textarea
+                id="level-content"
+                rows={16}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                aria-describedby="content-hint"
+                className="input-box leading-relaxed"
+              />
+            )}
+            <p id="content-hint" className="mt-2 text-base text-ink/75">
+              Tips menulis: <code className="rounded bg-ink/10 px-1">###</code> untuk subjudul,{" "}
+              <code className="rounded bg-ink/10 px-1">-</code> untuk daftar,{" "}
+              <code className="rounded bg-ink/10 px-1">**tebal**</code> untuk huruf tebal.
+            </p>
+            <p
+              className={`mt-2 flex items-center gap-2 font-bold ${wordWarning ? "text-alert" : "text-ink/80"}`}
+              role="status"
+            >
+              <ClockIcon size={20} />
+              {words} kata, ± {readMinutes(words)} menit baca
+            </p>
+            {wordWarning && <p className="text-base text-alert">{wordWarning}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="level-summary" className="field-label flex items-center gap-2">
+              <ScrollIcon size={20} />
+              Rangkuman
             </label>
             <textarea
               id="level-summary"
@@ -197,7 +261,7 @@ export default function TeacherLevelPage() {
           </div>
 
           <div>
-            <p className="field-label">Poin penting</p>
+            <p className="field-label flex items-center gap-2"><LightbulbIcon size={20} />Poin penting</p>
             <ul className="flex flex-col gap-2">
               {keyPoints.map((point, i) => (
                 <li key={i} className="flex gap-2">
@@ -209,17 +273,19 @@ export default function TeacherLevelPage() {
                   />
                   <button
                     onClick={() => setKeyPoints((pts) => pts.filter((_, j) => j !== i))}
-                    className="btn-danger px-3 py-1 text-xs"
+                    className="btn-danger btn-sm"
                     aria-label={`Hapus poin ${i + 1}`}
                   >
-                    Hapus
+                    <TrashIcon size={20} />
+                    <span className="hidden sm:inline">Hapus</span>
                   </button>
                 </li>
               ))}
-              {keyPoints.length === 0 && <li className="text-sm text-ink/60">Belum ada poin penting.</li>}
+              {keyPoints.length === 0 && <li className="text-ink/75">Belum ada poin penting.</li>}
             </ul>
             {keyPoints.length < 8 && (
-              <button onClick={() => setKeyPoints((pts) => [...pts, ""])} className="btn-ghost mt-3 px-3 py-1 text-xs">
+              <button onClick={() => setKeyPoints((pts) => [...pts, ""])} className="btn-ghost mt-3 btn-sm">
+                <PlusIcon size={20} />
                 Tambah poin
               </button>
             )}
@@ -229,29 +295,30 @@ export default function TeacherLevelPage() {
 
           <div className="flex flex-col gap-6 lg:sticky lg:top-20">
           <div className="surface">
-            <p className="field-label">Sumber materi</p>
+            <p className="field-label flex items-center gap-2"><ScrollIcon size={20} />Sumber</p>
             {level.sources.length > 0 ? (
-              <ul className="list-disc pl-5 text-sm text-ink/80">
+              <ul className="list-disc pl-5 text-ink/80">
                 {level.sources.map((s, i) => (
                   <li key={i}>{formatSource(s)}</li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-ink/60">Belum ada sumber.</p>
+              <p className="text-ink/75">Belum ada sumber.</p>
             )}
           </div>
 
           <div className="surface flex flex-wrap items-center gap-3">
             <button onClick={saveSummary} disabled={saving || !title.trim()} className="btn-primary">
+              <CheckIcon size={22} />
               {saving ? "Menyimpan..." : "Simpan"}
             </button>
             {saved && (
-              <span role="status" className="text-sm text-correct">
-                Tersimpan
+              <span role="status" className="font-bold text-correct-dark">
+                Sudah tersimpan
               </span>
             )}
             {saveError && (
-              <span role="alert" className="text-sm text-alert">
+              <span role="alert" className="font-bold text-alert">
                 {saveError}
               </span>
             )}
@@ -291,7 +358,7 @@ function QuestionsPanel({ levelId, questions, approvedCount, reload }: Questions
       await api.updateQuestion(q.id, { status: q.status === "approved" ? "draft" : "approved" });
       await reload();
     } catch (err) {
-      setError(errMsg(err, "Gagal mengubah status soal"));
+      setError(errMsg(err, "Status soal belum bisa diubah."));
     }
   }
 
@@ -302,17 +369,17 @@ function QuestionsPanel({ levelId, questions, approvedCount, reload }: Questions
       setConfirmId(null);
       await reload();
     } catch (err) {
-      setError(errMsg(err, "Gagal menghapus soal"));
+      setError(errMsg(err, "Soal belum bisa dihapus."));
     }
   }
 
   return (
     <div>
-      <p className="mb-4 text-sm text-ink/70">
-        {approvedCount} dari {questions.length} soal approved
+      <p className="mb-4 text-base font-bold text-ink/80">
+        {approvedCount} dari {questions.length} soal sudah disetujui
       </p>
       {error && (
-        <p role="alert" className="mb-4 text-sm text-alert">
+        <p role="alert" className="mb-4 text-alert">
           {error}
         </p>
       )}
@@ -334,36 +401,38 @@ function QuestionsPanel({ levelId, questions, approvedCount, reload }: Questions
           ) : (
             <li key={q.id} className="card">
               <p className="mb-3 font-medium">{q.question_text}</p>
-              <ul className="mb-3 flex flex-col gap-1 text-sm">
+              <ul className="mb-3 flex flex-col gap-1">
                 {q.options.map((opt, i) => (
-                  <li key={i} className={opt === q.correct_answer ? "font-semibold text-correct" : "text-ink/80"}>
+                  <li key={i} className={opt === q.correct_answer ? "font-semibold text-correct-dark" : "text-ink/80"}>
                     {opt}
                   </li>
                 ))}
               </ul>
-              {q.explanation && <p className="mb-3 text-sm text-ink/60">{q.explanation}</p>}
+              {q.explanation && <p className="mb-3 text-ink/75">{q.explanation}</p>}
               <div className="flex flex-wrap items-center gap-2">
                 <span className={q.status === "approved" ? "badge-success" : "badge"}>
-                  {q.status === "approved" ? "Approved" : "Draft"}
+                  {q.status === "approved" ? "Disetujui" : "Draft"}
                 </span>
-                <button onClick={() => toggle(q)} className="btn-primary px-3 py-1 text-xs">
-                  {q.status === "approved" ? "Batalkan approve" : "Approve"}
+                <button onClick={() => toggle(q)} className="btn-primary btn-sm">
+                  {q.status === "approved" ? "Batalkan persetujuan" : "Setujui"}
                 </button>
-                <button onClick={() => setEditingId(q.id)} className="btn-ghost px-3 py-1 text-xs">
-                  Edit
+                <button onClick={() => setEditingId(q.id)} className="btn-ghost btn-sm">
+                  <PencilIcon size={20} />
+                  Ubah
                 </button>
                 {confirmId === q.id ? (
-                  <span className="flex items-center gap-2 text-xs">
+                  <span className="flex flex-wrap items-center gap-2 text-base">
                     Hapus soal ini?
-                    <button onClick={() => remove(q)} className="btn-danger px-3 py-1 text-xs">
+                    <button onClick={() => remove(q)} className="btn-danger btn-sm">
                       Ya, hapus
                     </button>
-                    <button onClick={() => setConfirmId(null)} className="btn-ghost px-3 py-1 text-xs">
+                    <button onClick={() => setConfirmId(null)} className="btn-ghost btn-sm">
                       Batal
                     </button>
                   </span>
                 ) : (
-                  <button onClick={() => setConfirmId(q.id)} className="btn-danger px-3 py-1 text-xs">
+                  <button onClick={() => setConfirmId(q.id)} className="btn-danger btn-sm">
+                    <TrashIcon size={20} />
                     Hapus
                   </button>
                 )}
@@ -371,13 +440,13 @@ function QuestionsPanel({ levelId, questions, approvedCount, reload }: Questions
             </li>
           )
         )}
-        {questions.length === 0 && <li className="text-sm text-ink/60">Belum ada soal.</li>}
+        {questions.length === 0 && <li className="text-ink/75">Belum ada soal.</li>}
       </ul>
 
       <div className="mt-6">
         {adding ? (
           <div className="card">
-            <h2 className="mb-3 font-display text-lg">Tambah soal manual</h2>
+            <h2 className="mb-3 text-xl">Tambah soal sendiri</h2>
             <QuestionForm
               submitLabel="Tambah soal"
               onCancel={() => setAdding(false)}
@@ -395,7 +464,8 @@ function QuestionsPanel({ levelId, questions, approvedCount, reload }: Questions
           </div>
         ) : (
           <button onClick={() => setAdding(true)} className="btn-ghost">
-            Tambah soal manual
+            <PlusIcon size={22} />
+            Tambah soal sendiri
           </button>
         )}
       </div>
@@ -444,7 +514,7 @@ function QuestionForm({ initial, submitLabel, onSubmit, onCancel }: QuestionForm
         explanation: explanation.trim(),
       });
     } catch (err) {
-      setError(errMsg(err, "Gagal menyimpan soal"));
+      setError(errMsg(err, "Soal belum tersimpan. Coba lagi ya."));
       setBusy(false);
     }
   }
@@ -456,7 +526,7 @@ function QuestionForm({ initial, submitLabel, onSubmit, onCancel }: QuestionForm
         <textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} className="input-box" />
       </div>
       <fieldset>
-        <legend className="field-label">Opsi jawaban (pilih yang benar)</legend>
+        <legend className="field-label">Pilihan jawaban (tandai yang benar)</legend>
         <div className="flex flex-col gap-2">
           {options.map((opt, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -465,11 +535,11 @@ function QuestionForm({ initial, submitLabel, onSubmit, onCancel }: QuestionForm
                 name={`correct-${initial?.id ?? "new"}`}
                 checked={correctIndex === i}
                 onChange={() => setCorrectIndex(i)}
-                aria-label={`Opsi ${i + 1} adalah jawaban benar`}
-                className="accent-highlight"
+                aria-label={`Pilihan ${i + 1} adalah jawaban benar`}
+                className="h-6 w-6 accent-sky-dark"
               />
               <input
-                aria-label={`Opsi ${i + 1}`}
+                aria-label={`Pilihan ${i + 1}`}
                 value={opt}
                 onChange={(e) => setOptions((os) => os.map((o, j) => (j === i ? e.target.value : o)))}
                 className="input-box min-w-0 flex-1"
@@ -488,10 +558,10 @@ function QuestionForm({ initial, submitLabel, onSubmit, onCancel }: QuestionForm
         </p>
       )}
       <div className="flex gap-2">
-        <button onClick={submit} disabled={busy || !valid} className="btn-primary px-4 py-2 text-sm">
+        <button onClick={submit} disabled={busy || !valid} className="btn-primary btn-sm">
           {busy ? "Menyimpan..." : submitLabel}
         </button>
-        <button onClick={onCancel} className="btn-ghost px-4 py-2 text-sm">
+        <button onClick={onCancel} className="btn-ghost btn-sm">
           Batal
         </button>
       </div>

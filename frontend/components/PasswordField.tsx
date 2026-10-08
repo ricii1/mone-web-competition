@@ -1,19 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-function EyeIcon({ open }: { open: boolean }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M2 12s3.8-7 10-7 10 7 10 7-3.8 7-10 7-10-7-10-7Z" />
-      {open ? (
-        <circle cx="12" cy="12" r="3" />
-      ) : (
-        <path d="M4 4l16 16" strokeLinecap="round" />
-      )}
-    </svg>
-  );
-}
+import { EyeIcon, EyeOffIcon } from "@/components/icons";
 
 export default function PasswordField({
   id,
@@ -48,15 +36,15 @@ export default function PasswordField({
           required={required}
           minLength={minLength}
           autoComplete={autoComplete}
-          className="input-rule pr-8"
+          className="input-rule pr-14"
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? "Sembunyikan kata sandi" : "Lihat kata sandi"}
-          className="absolute -right-1.5 top-1/2 -translate-y-1/2 p-2 text-ink/40 hover:text-ink"
+          className="absolute right-1 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-xl text-ink/70 hover:text-ink"
         >
-          <EyeIcon open={visible} />
+          {visible ? <EyeOffIcon size={22} /> : <EyeIcon size={22} />}
         </button>
       </div>
     </div>

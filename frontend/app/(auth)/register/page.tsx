@@ -35,18 +35,18 @@ export default function RegisterPage() {
 
   return (
     <>
-      <h1 className="mb-1 font-display text-3xl">Daftar</h1>
-      <p className="mb-8 text-ink/60">Buat akun untuk mulai memakai EduMap.</p>
+      <h1 className="mb-1 text-4xl">Buat akun baru</h1>
+      <p className="mb-6 text-ink/75">Gratis dan cepat. Ayo mulai!</p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <fieldset className="field">
-          <legend className="field-label mb-1">Daftar sebagai</legend>
+          <legend className="field-label mb-1">Kamu siapa?</legend>
           <RoleChooser value={role} onChange={setRole} />
         </fieldset>
 
         <div className="field">
           <label htmlFor="name" className="field-label">
-            Nama
+            Namamu
           </label>
           <input
             id="name"
@@ -71,23 +71,27 @@ export default function RegisterPage() {
         </div>
         <PasswordField
           id="password"
-          label="Kata sandi"
+          label="Kata sandi (min. 8 huruf)"
           value={password}
           onChange={setPassword}
           required
           minLength={8}
           autoComplete="new-password"
         />
-        {error && <p className="text-sm text-alert">{error}</p>}
-        <button type="submit" disabled={loading} className="btn-primary mt-2">
-          {loading ? "Memproses..." : "Daftar"}
+        {error && (
+          <p role="alert" className="note border-coral bg-coral-soft text-alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">
+          {loading ? "Tunggu sebentar..." : "Daftar"}
         </button>
       </form>
 
-      <p className="mt-8 text-sm text-ink/70">
-        Sudah punya akun?{" "}
+      <p className="mt-6 flex min-h-[48px] items-center gap-2 text-base text-ink/75">
+        Sudah punya akun?
         <Link href="/login" className="link-text">
-          Masuk
+          Masuk di sini
         </Link>
       </p>
     </>
