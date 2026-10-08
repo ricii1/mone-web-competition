@@ -5,6 +5,7 @@ from pydantic import BaseModel, field_validator
 from app.models.level import LevelStatus, LevelType
 
 MAX_KEY_POINTS = 8
+MAX_CONTENT_CHARS = 20000
 
 
 class LevelSourceResponse(BaseModel):
@@ -20,6 +21,7 @@ class LevelResponse(BaseModel):
     title: str
     type: LevelType
     order_index: int
+    content: str | None = None
     summary: str | None
     key_points: list[str] = []
     sources: list[LevelSourceResponse] = []
@@ -35,7 +37,17 @@ class LevelUpdateRequest(BaseModel):
     clear_prerequisite: bool = False
     status: LevelStatus | None = None
     summary: str | None = None
+    content: str | None = None
     key_points: list[str] | None = None
+
+    @field_validator("content")
+    @classmethod
+    def _validate_content(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if len(value) > MAX_CONTENT_CHARS:
+            raise ValueError(f"content maksimal {MAX_CONTENT_CHARS} karakter")
+        return value.strip()
 
     @field_validator("key_points")
     @classmethod

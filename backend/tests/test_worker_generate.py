@@ -10,6 +10,7 @@ from app.models.material import Material, MaterialChunk, VectorStatus
 from app.models.question import Question, QuestionStatus
 from app.models.user import User, UserRole
 from app.schemas.generation import (
+    GeneratedLevelLesson,
     GeneratedLevelSummary,
     GeneratedQuestion,
     GeneratedQuestionsOutput,
@@ -59,7 +60,14 @@ def _fake_question(i: int) -> GeneratedQuestion:
     )
 
 
+FAKE_CONTENT = "### Judul\n\n" + "Ini adalah isi materi yang cukup panjang untuk murid. " * 6
+
+
 async def _fake_groq(redis, system_prompt, user_prompt, model_cls):
+    if model_cls is GeneratedLevelLesson:
+        return GeneratedLevelLesson(
+            content=FAKE_CONTENT, summary="ringkasan", key_points=["a", "b", "c"]
+        )
     if model_cls is GeneratedLevelSummary:
         return GeneratedLevelSummary(summary="ringkasan", key_points=["a", "b", "c"])
     return GeneratedQuestionsOutput(questions=[_fake_question(i) for i in range(5)])
@@ -93,6 +101,12 @@ async def test_success_creates_levels_with_boss_and_chain(db, events):
         assert cur.prerequisite_id == prev.id
     assert all(lv.status == LevelStatus.draft for lv in levels)
     assert all(lv.key_points == ["a", "b", "c"] for lv in levels)
+    # Lessons get the article; boss levels have summary + key points only.
+    for lv in levels:
+        if lv.type == LevelType.lesson_quiz:
+            assert lv.content == FAKE_CONTENT.strip()
+        else:
+            assert lv.content is None
     for lv in levels:
         questions = db.query(Question).filter_by(level_id=lv.id).all()
         assert len(questions) == 5

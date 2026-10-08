@@ -61,6 +61,9 @@ def update_level(db: Session, level: Level, body: LevelUpdateRequest) -> Level:
         level.prerequisite_id = None if body.clear_prerequisite else body.prerequisite_id
     if body.summary is not None:
         level.summary = body.summary
+    if body.content is not None:
+        # An empty string clears the article (stored as NULL).
+        level.content = body.content or None
     if body.key_points is not None:
         level.key_points = body.key_points
     if body.status is not None:

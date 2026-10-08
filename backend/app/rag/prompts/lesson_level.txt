@@ -1,0 +1,16 @@
+Buat bahan belajar untuk murid SD (usia sekitar 7-12 tahun) dalam Bahasa Indonesia, berdasarkan konteks materi berikut. Semuanya HANYA boleh berdasarkan konteks ini. Jangan menambah fakta, angka, nama, atau contoh dari luar konteks. Jika konteks terlalu sedikit, tulis artikel yang lebih pendek; jangan mengisi dengan karangan.
+
+Yang harus dibuat:
+- "content": artikel penjelasan seperti tulisan yang ramah untuk anak SD.
+  - Target 450-650 kata jika konteks cukup (bacaan 2-3 menit).
+  - Pakai kalimat pendek dan sederhana. Jelaskan setiap istilah sulit saat pertama kali muncul.
+  - Pakai contoh konkret yang ada di materi.
+  - Susun dengan Markdown sederhana saja: subjudul `### Subjudul`, paragraf pendek, daftar `- ` bila ada urutan atau pengelompokan, dan `**tebal**` untuk istilah penting. Jangan pakai format lain (tanpa tabel, gambar, atau tautan).
+- "summary": rangkuman 3-4 kalimat yang benar-benar meringkas seluruh isi artikel, bukan hanya kalimat pertama.
+- "key_points": 3-6 poin penting berupa kalimat pendek (satu gagasan per poin).
+
+Konteks materi:
+{context}
+
+Kembalikan HANYA JSON valid dengan skema berikut, tanpa teks lain:
+{{"content": "...", "summary": "...", "key_points": ["...", "...", "..."]}}

@@ -1,7 +1,11 @@
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+MIN_CONTENT_CHARS = 200
+
 
 class GeneratedLevelSummary(BaseModel):
+    """Summary + key points only (boss levels)."""
+
     summary: str = Field(min_length=1)
     key_points: list[str] = Field(min_length=3, max_length=6)
 
@@ -18,6 +22,19 @@ class GeneratedLevelSummary(BaseModel):
         if any(not point.strip() for point in value):
             raise ValueError("key_points items must not be blank")
         return value
+
+
+class GeneratedLevelLesson(GeneratedLevelSummary):
+    """Lesson level: the article plus the recap and key points."""
+
+    content: str = Field(min_length=MIN_CONTENT_CHARS)
+
+    @field_validator("content")
+    @classmethod
+    def _content_not_blank(cls, value: str) -> str:
+        if len(value.strip()) < MIN_CONTENT_CHARS:
+            raise ValueError("content is too short")
+        return value.strip()
 
 
 class GeneratedQuestion(BaseModel):

@@ -10,7 +10,7 @@ from app.models.material import Material, MaterialChunk, VectorStatus
 from app.models.progress import Progress, ProgressStatus
 from app.models.question import Question, QuestionStatus
 from app.models.user import User, UserRole
-from app.schemas.generation import GeneratedLevelSummary
+from app.schemas.generation import GeneratedLevelLesson, GeneratedLevelSummary
 
 
 def _user(db, role: UserRole) -> User:
@@ -213,3 +213,52 @@ def test_generated_summary_validation():
         GeneratedLevelSummary(summary="x", key_points=["a", "b", " "])
     with pytest.raises(ValidationError):
         GeneratedLevelSummary(summary="", key_points=["a", "b", "c"])
+
+
+def test_generated_lesson_validation():
+    ok = "Isi materi yang cukup panjang. " * 10
+    GeneratedLevelLesson(content=ok, summary="x", key_points=["a", "b", "c"])
+    with pytest.raises(ValidationError):
+        GeneratedLevelLesson(content="terlalu pendek", summary="x", key_points=["a", "b", "c"])
+    with pytest.raises(ValidationError):
+        GeneratedLevelLesson(content=" " * 300, summary="x", key_points=["a", "b", "c"])
+    with pytest.raises(ValidationError):
+        GeneratedLevelLesson(content=ok, summary="", key_points=["a", "b", "c"])
+    with pytest.raises(ValidationError):
+        GeneratedLevelLesson(content=ok, summary="x", key_points=["a", "b"])
+
+
+def test_patch_content_strips_and_empty_clears(client, db):
+    teacher, cls, level = _setup(db)
+    resp = client.patch(
+        f"/api/v1/levels/{level.id}",
+        json={"content": "  ### Judul\n\nIsi.  "},
+        headers=_auth(teacher),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["content"] == "### Judul\n\nIsi."
+    listed = client.get(f"/api/v1/classes/{cls.id}/levels", headers=_auth(teacher)).json()
+    assert listed[0]["content"] == "### Judul\n\nIsi."
+
+    resp = client.patch(f"/api/v1/levels/{level.id}", json={"content": ""}, headers=_auth(teacher))
+    assert resp.status_code == 200
+    assert resp.json()["content"] is None
+
+
+def test_patch_content_too_long_rejected(client, db):
+    teacher, _, level = _setup(db)
+    resp = client.patch(
+        f"/api/v1/levels/{level.id}", json={"content": "a" * 20001}, headers=_auth(teacher)
+    )
+    assert resp.status_code == 422
+
+
+def test_student_sees_content_of_enrolled_published_class(client, db):
+    teacher, cls, level = _setup(db)
+    level.content = "### Materi\n\nIsi bacaan."
+    student = _user(db, UserRole.student)
+    db.add(Enrollment(user_id=student.id, class_id=cls.id))
+    db.commit()
+    resp = client.get(f"/api/v1/classes/{cls.id}/levels", headers=_auth(student))
+    assert resp.status_code == 200
+    assert resp.json()[0]["content"] == "### Materi\n\nIsi bacaan."

@@ -9,7 +9,11 @@ from app.rag.llm import call_groq_structured, load_prompt
 from app.realtime.channels import class_channel
 from app.realtime.events import GenerationProgressPayload, LevelCreatedPayload, RealtimeEvent
 from app.realtime.pubsub import get_redis, publish_event
-from app.schemas.generation import GeneratedLevelSummary, GeneratedQuestionsOutput
+from app.schemas.generation import (
+    GeneratedLevelLesson,
+    GeneratedLevelSummary,
+    GeneratedQuestionsOutput,
+)
 from app.services.level_service import (
     LEVELS_PER_BOSS,
     QUESTIONS_PER_LEVEL,
@@ -17,7 +21,9 @@ from app.services.level_service import (
     has_approved_level,
 )
 
-MAX_CONTEXT_CHARS = 6000
+# About 2000 tokens of context per call: enough for a whole section (the lesson article is
+# written from it) while keeping Groq token usage per level bounded.
+MAX_CONTEXT_CHARS = 8000
 
 
 async def _publish_stage(
@@ -45,6 +51,14 @@ def _set_generation_state(
     cls.generation_status = status
     cls.generation_error = error
     db.commit()
+
+
+async def _write_lesson(redis, content: str) -> GeneratedLevelLesson:
+    prompt = load_prompt("lesson_level").format(context=content[:MAX_CONTEXT_CHARS])
+    result: GeneratedLevelLesson = await call_groq_structured(
+        redis, load_prompt("system_tutor"), prompt, GeneratedLevelLesson
+    )
+    return result
 
 
 async def _summarize(redis, content: str) -> GeneratedLevelSummary:
@@ -114,13 +128,14 @@ async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
         boss_count = 0
 
         for idx, chunk in enumerate(chunks):
-            lesson = await _summarize(redis, chunk.content)
+            lesson = await _write_lesson(redis, chunk.content)
             level = Level(
                 class_id=class_id_uuid,
                 prerequisite_id=prev_level_id,
                 title=chunk.section_title or f"Bagian {idx + 1}",
                 type=LevelType.lesson_quiz,
                 order_index=order_index,
+                content=lesson.content,
                 summary=lesson.summary,
                 key_points=lesson.key_points,
             )

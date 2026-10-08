@@ -10,7 +10,12 @@ from typing import TypeVar
 from pydantic import BaseModel
 
 from app.core.config import settings
-from app.schemas.generation import GeneratedLevelSummary, GeneratedQuestionsOutput
+from app.schemas.generation import (
+    MIN_CONTENT_CHARS,
+    GeneratedLevelLesson,
+    GeneratedLevelSummary,
+    GeneratedQuestionsOutput,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -22,6 +27,10 @@ MAX_KEY_POINTS = 4
 MIN_KEY_POINTS = 3
 MAX_KEY_POINT_WORDS = 14
 MIN_CLAUSE_WORDS = 3
+SENTENCES_PER_PARAGRAPH = 3
+MAX_HEADING_WORDS = 8
+GENERIC_HEADING = "Penjelasan Materi"
+BULLET_RE = re.compile(r"^\s*(?:[-*\u2022\u25cf\u25aa]|\d+[.)])\s+(.*\S)\s*$")
 FILLER_OPTIONS = ["tidak disebutkan dalam materi", "semua jawaban benar", "tidak ada jawaban benar"]
 
 
@@ -83,6 +92,68 @@ def _summary(context: str) -> GeneratedLevelSummary:
     )
 
 
+def _split_sentences(text: str) -> list[str]:
+    flat = re.sub(r"\s+", " ", text).strip()
+    return [p.strip() for p in re.split(r"(?<=[.!?])\s+", flat) if p.strip()]
+
+
+def _article(context: str) -> str:
+    """Re-flow the context into Markdown (heading, ~3-sentence paragraphs, bullet lists).
+
+    Only text already in the context is used; nothing is added except a generic heading.
+    """
+    lines = [line.rstrip() for line in context.splitlines()]
+    heading = GENERIC_HEADING
+    first_index = next((i for i, line in enumerate(lines) if line.strip()), None)
+    if first_index is not None:
+        first = lines[first_index].strip()
+        if (
+            len(first.split()) <= MAX_HEADING_WORDS
+            and not first.endswith((".", "!", "?", ":"))
+            and not BULLET_RE.match(first)
+        ):
+            heading = first.lstrip("#").strip() or GENERIC_HEADING
+            lines = lines[first_index + 1 :]
+
+    blocks: list[str] = [f"### {heading}"]
+    prose: list[str] = []
+    bullets: list[str] = []
+
+    def flush_prose() -> None:
+        sentences = _split_sentences(" ".join(prose))
+        for start in range(0, len(sentences), SENTENCES_PER_PARAGRAPH):
+            blocks.append(" ".join(sentences[start : start + SENTENCES_PER_PARAGRAPH]))
+        prose.clear()
+
+    def flush_bullets() -> None:
+        if bullets:
+            blocks.append("\n".join(f"- {item}" for item in bullets))
+            bullets.clear()
+
+    for line in lines:
+        match = BULLET_RE.match(line)
+        if match:
+            flush_prose()
+            bullets.append(match.group(1))
+        elif line.strip():
+            flush_bullets()
+            prose.append(line.strip())
+        else:
+            flush_prose()
+            flush_bullets()
+    flush_prose()
+    flush_bullets()
+    return "\n\n".join(blocks)
+
+
+def _lesson(context: str) -> GeneratedLevelLesson:
+    article = _article(context)
+    if len(article) < MIN_CONTENT_CHARS:
+        raise MockLlmError("Konteks terlalu pendek untuk dibuat materi")
+    base = _summary(context)
+    return GeneratedLevelLesson(content=article, summary=base.summary, key_points=base.key_points)
+
+
 def _questions(context: str, num_questions: int) -> GeneratedQuestionsOutput:
     sentences = _sentences(context)
     if not sentences:
@@ -129,6 +200,8 @@ def _questions(context: str, num_questions: int) -> GeneratedQuestionsOutput:
 async def mock_structured(user_prompt: str, schema: type[T]) -> T:
     await asyncio.sleep(settings.mock_llm_delay_seconds)
     context = _extract_context(user_prompt)
+    if schema is GeneratedLevelLesson:
+        return _lesson(context)  # type: ignore[return-value]
     if schema is GeneratedLevelSummary:
         return _summary(context)  # type: ignore[return-value]
     if schema is GeneratedQuestionsOutput:

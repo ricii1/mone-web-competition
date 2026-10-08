@@ -12,13 +12,21 @@ EduMap adalah platform web pembelajaran untuk lomba *"Innovating Education Throu
 
 - **Guru** membuat *class* (public/private), mengunggah materi PDF.
 - Sistem memproses PDF dengan **RAG** dan menghasilkan **peta level** bergaya game (graph).
-- **Murid** membuka level satu per satu: penjelasan → kuis → level berikutnya terbuka. Ada leaderboard per class.
+- **Murid** membuka level satu per satu: materi detail → rangkuman → kuis → level berikutnya terbuka. Ada leaderboard per class.
+
+**Pengguna: guru SD dan murid SD** (kira-kira usia 7–12 tahun). Semua keputusan UI dan konten harus mengikuti ini:
+
+- Teks UI dan konten AI memakai Bahasa Indonesia yang sederhana: kalimat pendek, istilah sulit dijelaskan, nada ramah dan menyemangati.
+- Tampilan murid dibuat menyenangkan dan ramah anak: warna cerah, ikon dan ilustrasi ringan (SVG inline), tombol besar (target sentuh ≥ 48px), huruf besar dan mudah dibaca, umpan balik positif (bintang, selamat). Hindari istilah teknis dan layar yang padat.
+- Tampilan guru tetap rapi dan efisien, tetapi memakai bahasa visual yang sama agar konsisten.
+- Konten contoh (class contoh, seed) memakai topik tingkat SD, bukan SMP/SMA.
 
 Prinsip produk yang tidak boleh dilanggar:
 
 1. **Driven by guru dan kurikulum.** Semua konten AI (ringkasan, soal, jawaban tutor) harus berasal dari materi yang diunggah guru melalui retrieval. AI tidak boleh mengarang dari pengetahuan umum. Jika konteks tidak cukup, AI harus bilang tidak tahu.
 2. **AI membantu guru, bukan menggantikan.** Struktur level dan soal yang dihasilkan AI berstatus *draft* sampai guru menyetujui.
 3. **Ringan untuk murid.** Halaman murid harus cepat di HP low-end dan koneksi lambat. Semua komputasi berat (parsing, embedding, LLM) terjadi di backend.
+4. **Cocok untuk anak SD.** Materi level berupa artikel pendek (±450–650 kata, bacaan 2–3 menit) yang disusun dari materi guru, diikuti rangkuman dan poin penting; bahasa dan tampilan harus bisa dipahami murid SD.
 
 ---
 

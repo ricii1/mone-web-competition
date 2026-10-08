@@ -3,7 +3,11 @@ import pytest
 from app.core.config import settings
 from app.rag.llm import call_groq_structured, load_prompt
 from app.rag.mock_llm import MockLlmError
-from app.schemas.generation import GeneratedLevelSummary, GeneratedQuestionsOutput
+from app.schemas.generation import (
+    GeneratedLevelLesson,
+    GeneratedLevelSummary,
+    GeneratedQuestionsOutput,
+)
 
 CONTEXT = (
     "Mitokondria adalah organel yang menghasilkan energi bagi sel. "
@@ -72,3 +76,46 @@ async def test_mock_rejects_context_too_short(mock_mode):
     prompt = load_prompt("generate_questions").format(num_questions=5, context="Pendek.")
     with pytest.raises(MockLlmError):
         await call_groq_structured(None, "sys", prompt, GeneratedQuestionsOutput)
+
+
+LESSON_CONTEXT = (
+    "Siklus Air\n"
+    "Air di bumi selalu berputar dari tempat yang satu ke tempat yang lain. "
+    "Panas matahari membuat air laut menguap menjadi uap air. "
+    "Uap air naik ke langit dan menjadi dingin. Uap air yang dingin berubah menjadi awan. "
+    "Awan yang berat menjatuhkan hujan ke bumi. Hujan mengisi sungai dan danau.\n\n"
+    "Tahap siklus air:\n"
+    "- Penguapan\n"
+    "- Pengembunan\n"
+    "- Hujan\n"
+)
+
+
+async def test_mock_lesson_content_is_grounded_and_reflowed(mock_mode):
+    prompt = load_prompt("lesson_level").format(context=LESSON_CONTEXT)
+    result = await call_groq_structured(None, "sys", prompt, GeneratedLevelLesson)
+    blocks = result.content.split("\n\n")
+    assert blocks[0] == "### Siklus Air"
+    # 6 prose sentences re-flowed into paragraphs of up to 3 sentences, then the bullet list.
+    assert len(blocks[1].split(". ")) == 3
+    assert blocks[-1] == "- Penguapan\n- Pengembunan\n- Hujan"
+    context_words = _bare(LESSON_CONTEXT)
+    for word in _bare(result.content.replace("###", "").replace("- ", "")):
+        assert word in context_words
+    assert 3 <= len(result.key_points) <= 6
+
+
+async def test_mock_lesson_without_heading_uses_generic_heading(mock_mode):
+    prompt = load_prompt("lesson_level").format(
+        context=" ".join([LESSON_CONTEXT.split("\n", 1)[1]])
+    )
+    result = await call_groq_structured(None, "sys", prompt, GeneratedLevelLesson)
+    assert result.content.startswith("### Penjelasan Materi")
+
+
+async def test_mock_lesson_rejects_too_short_context(mock_mode):
+    prompt = load_prompt("lesson_level").format(
+        context="Mitokondria adalah organel yang menghasilkan energi bagi sel."
+    )
+    with pytest.raises(MockLlmError):
+        await call_groq_structured(None, "sys", prompt, GeneratedLevelLesson)
