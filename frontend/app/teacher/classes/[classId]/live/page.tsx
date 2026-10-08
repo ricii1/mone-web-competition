@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import PageShell from "@/components/PageShell";
 import { ApiError, api } from "@/lib/api";
 import { connectRealtime } from "@/lib/realtime";
 import type { Level, LiveSession } from "@/lib/types";
@@ -61,41 +62,42 @@ export default function TeacherLivePage() {
     }
   }
 
+  const back = { href: `/teacher/classes/${classId}`, label: "Kembali ke class" };
+
   if (!session) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-        <h1 className="mb-6 font-display text-2xl">Mulai live class</h1>
+      <PageShell width="medium" back={back} title="Mulai live class" subtitle="Pilih level yang jadi bahan kuis serentak.">
         {error && <p className="mb-4 text-sm text-alert">{error}</p>}
-        <ul className="flex flex-col gap-2">
+        <ul className="grid gap-3 sm:grid-cols-2">
           {levels.map((l) => (
             <li key={l.id}>
-              <button onClick={() => start(l.id)} className="card block w-full text-left transition-colors hover:border-ink/30">
-                {l.title} ({l.type})
+              <button
+                onClick={() => start(l.id)}
+                className="card card-link flex h-full w-full items-center justify-between gap-2 p-4 text-left"
+              >
+                <span>{l.title}</span>
+                {l.type === "boss" && <span className="badge-alert">Boss</span>}
               </button>
             </li>
           ))}
-          {levels.length === 0 && <p className="text-sm text-ink/60">Belum ada level.</p>}
         </ul>
-      </main>
+        {levels.length === 0 && <p className="surface text-sm text-ink/65">Belum ada level.</p>}
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-      <h1 className="mb-1 font-display text-2xl">Live class</h1>
-      <p className="mb-6 text-sm text-ink/60">
-        Kode join: <span className="font-mono font-semibold text-ink">{session.join_code}</span> · status:{" "}
-        {session.status}
-      </p>
+    <PageShell width="medium" back={back} title="Live class" subtitle={`Status: ${session.status}`}>
       {error && <p className="mb-4 text-sm text-alert">{error}</p>}
 
-      {liveState && (
-        <pre className="card mb-6 overflow-x-auto whitespace-pre-wrap text-xs text-ink/70">
-          {JSON.stringify(liveState, null, 2)}
-        </pre>
-      )}
+      <div className="surface mb-6 text-center">
+        <p className="text-sm text-ink/65">Murid masuk di halaman Live class dengan kode</p>
+        <p className="mt-2 font-mono text-5xl font-semibold tracking-[0.3em] text-ink sm:text-6xl">
+          {session.join_code}
+        </p>
+      </div>
 
-      <div className="flex gap-3">
+      <div className="mb-6 flex flex-wrap gap-3 rounded-xl border border-rule bg-white/80 p-3 shadow-sm shadow-ink/5 [&>button]:min-h-[52px] [&>button]:flex-1 [&>button]:text-base">
         <button onClick={begin} className="btn-primary">
           Mulai
         </button>
@@ -106,6 +108,12 @@ export default function TeacherLivePage() {
           Akhiri
         </button>
       </div>
-    </main>
+
+      {liveState && (
+        <pre className="card overflow-x-auto whitespace-pre-wrap text-xs text-ink/70">
+          {JSON.stringify(liveState, null, 2)}
+        </pre>
+      )}
+    </PageShell>
   );
 }

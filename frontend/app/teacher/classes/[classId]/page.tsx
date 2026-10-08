@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { connectRealtime, type GenerationProgressEvent } from "@/lib/realtime";
+import ClassBadges from "@/components/ClassBadges";
+import PageShell from "@/components/PageShell";
 import type { Level, Material, SchoolClass, VectorStatus } from "@/lib/types";
 
 const LevelMap = dynamic(() => import("@/components/LevelMap"), {
@@ -21,10 +23,10 @@ const STAGE_LABEL: Record<GenerationProgressEvent["payload"]["stage"], string> =
 };
 
 const VECTOR_STATUS_COLOR: Record<VectorStatus, string> = {
-  pending: "text-ink/50",
-  processing: "text-highlight-dark",
-  ready: "text-correct",
-  failed: "text-alert",
+  pending: "badge",
+  processing: "badge-highlight",
+  ready: "badge-success",
+  failed: "badge-alert",
 };
 
 export default function TeacherClassPage() {
@@ -149,144 +151,171 @@ export default function TeacherClassPage() {
       : 0;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-      <h1 className="mb-1 font-display text-2xl">{cls?.title ?? "Memuat..."}</h1>
-      {cls && (
-        <p className="mb-6 text-sm text-ink/60">
-          {cls.is_example && (
-            <span className="mr-2 rounded-sm bg-highlight/20 px-2 py-0.5 text-xs font-medium text-ink">
-              Contoh
-            </span>
-          )}
-          {cls.visibility} · {cls.status}
-          {cls.invite_code && <> · kode undangan: {cls.invite_code}</>}
-        </p>
-      )}
-      {cls?.is_example && (
-        <p className="mb-4 rounded-sm border border-highlight/40 bg-highlight/10 p-3 text-sm">
-          {cls.description}
-        </p>
-      )}
-      {error && <p className="mb-4 text-sm text-alert">{error}</p>}
-
-      <section className="card mb-6">
-        <h2 className="mb-3 font-display text-lg">Materi PDF</h2>
-        <label className="btn-ghost w-fit cursor-pointer text-sm">
-          {uploading ? "Mengunggah..." : "Unggah PDF"}
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={handleUpload}
-            disabled={uploading}
-            className="hidden"
-          />
-        </label>
-        <ul className="mt-4 flex flex-col gap-1 text-sm">
-          {materials.map((m) => (
-            <li key={m.id}>
-              {m.file_name} —{" "}
-              <span className={`font-medium ${VECTOR_STATUS_COLOR[m.vector_status]}`}>{m.vector_status}</span>
-              {m.error_message && <span className="text-alert"> ({m.error_message})</span>}
-            </li>
-          ))}
-          {materials.length === 0 && <li className="text-ink/50">Belum ada materi.</li>}
-        </ul>
-      </section>
-
-      <section className="card mb-6">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-display text-lg">Level & soal</h2>
-          <button
-            onClick={handleGenerateClick}
-            disabled={busy || !readyMaterials}
-            className="btn-primary px-3 py-1.5 text-sm"
-          >
-            {busy ? "Memproses..." : levels.length > 0 ? "Generate ulang" : "Generate level"}
-          </button>
-        </div>
-        {!readyMaterials && !busy && (
-          <p className="mb-3 text-sm text-ink/60">Unggah dan tunggu materi PDF siap sebelum membuat level.</p>
-        )}
-        {confirming && (
-          <div className="mb-3 rounded-sm border border-highlight/40 bg-highlight/10 p-3 text-sm" role="alert">
-            <p className="mb-2">Level draft akan diganti. Lanjutkan?</p>
-            <div className="flex gap-2">
-              <button onClick={() => handleGenerate()} className="btn-primary px-3 py-1.5 text-sm">
-                Ya, generate ulang
-              </button>
-              <button onClick={() => setConfirming(false)} className="btn-ghost px-3 py-1.5 text-sm">
-                Batal
-              </button>
-            </div>
-          </div>
-        )}
-        {busy && (
-          <div className="mb-3 rounded-sm border border-rule p-3 text-sm" role="status" aria-live="polite">
-            <p className="mb-2 font-medium">
-              {liveProgress ? STAGE_LABEL[liveProgress.stage] : "Menyiapkan generate"}
-              {liveProgress && liveProgress.total > 0 && (
-                <span className="font-normal text-ink/60">
-                  {" "}
-                  — level {liveProgress.current} dari{" "}
-                  {liveProgress.total}
-                </span>
-              )}
-            </p>
-            <div className="h-2 w-full overflow-hidden rounded-sm bg-rule">
-              <div
-                className="h-full bg-highlight transition-[width] duration-300"
-                style={{ width: `${liveProgress ? Math.max(percent, 4) : 4}%` }}
-              />
-            </div>
-          </div>
-        )}
-        {!busy && failedMessage && (
-          <div className="mb-3 rounded-sm border border-alert/40 bg-alert/10 p-3 text-sm" role="alert">
-            <p className="mb-2 text-alert">{failedMessage}</p>
-            <button
-              onClick={() => handleGenerate()}
-              disabled={!readyMaterials}
-              className="btn-ghost px-3 py-1.5 text-sm"
-            >
-              Coba lagi
+    <PageShell
+      back={{ href: "/teacher", label: "Class saya" }}
+      crumbs={[{ label: "Class saya", href: "/teacher" }, { label: cls?.title ?? "..." }]}
+      title={cls?.title ?? "Memuat..."}
+      subtitle={
+        cls && (
+          <span className="flex flex-wrap items-center gap-2">
+            <ClassBadges cls={cls} />
+            {cls.invite_code && (
+              <span className="text-sm">
+                Kode undangan: <span className="font-mono font-semibold text-ink">{cls.invite_code}</span>
+              </span>
+            )}
+          </span>
+        )
+      }
+      actions={
+        <>
+          <Link href={`/teacher/classes/${classId}/live`} className="btn-ghost">
+            Live class
+          </Link>
+          {!cls?.is_example && (
+            <button onClick={handlePublish} className="btn-primary">
+              Publish class
             </button>
-          </div>
-        )}
-        {!loaded ? (
-          <p className="text-sm text-ink/50">Memuat level...</p>
-        ) : levels.length === 0 ? (
-          <p className="text-sm text-ink/50">
-            {busy ? "Level akan muncul satu per satu di sini." : "Belum ada level."}
-          </p>
-        ) : (
-          <>
-            <LevelMap classId={classId} levels={levels} teacher />
-            <p className="mt-2 text-xs text-ink/60">
-              Abu-abu: draft · Hijau: disetujui · Garis merah: level boss. Ketuk level untuk meninjau.
-            </p>
-            <ul className="mt-3 flex flex-col gap-1 text-sm">
-              {levels.map((l) => (
-                <li key={l.id}>
-                  <Link href={`/teacher/classes/${classId}/levels/${l.id}`} className="link-text">
-                    {l.order_index + 1}. {l.title} ({l.type}, {l.status})
-                  </Link>
+          )}
+        </>
+      }
+    >
+      {cls?.is_example && (
+        <p className="mb-4 rounded-xl border border-highlight/40 bg-highlight/10 p-3 text-sm">{cls.description}</p>
+      )}
+      {error && (
+        <p role="alert" className="mb-4 rounded-lg border border-alert/30 bg-alert/10 p-3 text-sm text-alert">
+          {error}
+        </p>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
+        <div className="flex flex-col gap-6">
+          <section className="surface">
+            <h2 className="mb-3 font-display text-xl">Materi PDF</h2>
+            <label className="btn-ghost w-fit cursor-pointer text-sm">
+              {uploading ? "Mengunggah..." : "Unggah PDF"}
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={handleUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+            <ul className="mt-4 flex flex-col gap-2 text-sm">
+              {materials.map((m) => (
+                <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-paper/70 px-3 py-2">
+                  <span className="min-w-0 break-words">{m.file_name}</span>
+                  <span className={VECTOR_STATUS_COLOR[m.vector_status]}>{m.vector_status}</span>
+                  {m.error_message && <span className="w-full text-alert">{m.error_message}</span>}
                 </li>
               ))}
+              {materials.length === 0 && <li className="text-ink/60">Belum ada materi.</li>}
             </ul>
-          </>
-        )}
-      </section>
+          </section>
 
-      <div className="flex gap-3">
-        {!cls?.is_example && (
-          <button onClick={handlePublish} className="btn-primary">
-            Publish class
-          </button>
-        )}
-        <Link href={`/teacher/classes/${classId}/live`} className="btn-ghost">
-          Live class
-        </Link>
+          <section className="surface">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-xl">Level & soal</h2>
+              <button
+                onClick={handleGenerateClick}
+                disabled={busy || !readyMaterials}
+                className="btn-primary px-3 py-1.5 text-sm"
+              >
+                {busy ? "Memproses..." : levels.length > 0 ? "Generate ulang" : "Generate level"}
+              </button>
+            </div>
+            {!readyMaterials && !busy && (
+              <p className="mb-3 text-sm text-ink/60">Unggah dan tunggu materi PDF siap sebelum membuat level.</p>
+            )}
+            {confirming && (
+              <div className="mb-3 rounded-lg border border-highlight/40 bg-highlight/10 p-3 text-sm" role="alert">
+                <p className="mb-2">Level draft akan diganti. Lanjutkan?</p>
+                <div className="flex gap-2">
+                  <button onClick={() => handleGenerate()} className="btn-primary px-3 py-1.5 text-sm">
+                    Ya, generate ulang
+                  </button>
+                  <button onClick={() => setConfirming(false)} className="btn-ghost px-3 py-1.5 text-sm">
+                    Batal
+                  </button>
+                </div>
+              </div>
+            )}
+            {busy && (
+              <div className="mb-3 rounded-lg border border-rule bg-paper/70 p-3 text-sm" role="status" aria-live="polite">
+                <p className="mb-2 font-medium">
+                  {liveProgress ? STAGE_LABEL[liveProgress.stage] : "Menyiapkan generate"}
+                  {liveProgress && liveProgress.total > 0 && (
+                    <span className="font-normal text-ink/60">
+                      {" "}
+                      — level {liveProgress.current} dari {liveProgress.total}
+                    </span>
+                  )}
+                </p>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-rule">
+                  <div
+                    className="h-full rounded-full bg-highlight transition-[width] duration-300"
+                    style={{ width: `${liveProgress ? Math.max(percent, 4) : 4}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {!busy && failedMessage && (
+              <div className="mb-3 rounded-lg border border-alert/40 bg-alert/10 p-3 text-sm" role="alert">
+                <p className="mb-2 text-alert">{failedMessage}</p>
+                <button
+                  onClick={() => handleGenerate()}
+                  disabled={!readyMaterials}
+                  className="btn-ghost px-3 py-1.5 text-sm"
+                >
+                  Coba lagi
+                </button>
+              </div>
+            )}
+            {levels.length > 0 && (
+              <ul className="flex flex-col gap-1 text-sm">
+                {levels.map((l) => (
+                  <li key={l.id}>
+                    <Link
+                      href={`/teacher/classes/${classId}/levels/${l.id}`}
+                      className="flex min-h-[44px] items-center justify-between gap-2 rounded-lg px-3 py-2 hover:bg-paper"
+                    >
+                      <span>
+                        {l.order_index + 1}. {l.title}
+                      </span>
+                      <span className="flex gap-1.5">
+                        {l.type === "boss" && <span className="badge-alert">Boss</span>}
+                        <span className={l.status === "approved" ? "badge-success" : "badge"}>
+                          {l.status === "approved" ? "Approved" : "Draft"}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+
+        <section className="surface lg:sticky lg:top-20">
+          <h2 className="mb-3 font-display text-xl">Peta level</h2>
+          {!loaded ? (
+            <p className="text-sm text-ink/50">Memuat level...</p>
+          ) : levels.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-rule p-10 text-center text-sm text-ink/60">
+              {busy ? "Level akan muncul satu per satu di sini." : "Belum ada level."}
+            </p>
+          ) : (
+            <>
+              <LevelMap classId={classId} levels={levels} teacher height="clamp(420px, 62vh, 640px)" />
+              <p className="mt-2 text-xs text-ink/65">
+                Abu-abu: draft · Hijau: disetujui · Garis merah: level boss. Ketuk level untuk meninjau.
+              </p>
+            </>
+          )}
+        </section>
       </div>
-    </main>
+    </PageShell>
   );
 }

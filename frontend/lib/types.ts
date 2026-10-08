@@ -38,6 +38,12 @@ export interface Material {
 export type LevelType = "lesson_quiz" | "boss";
 export type LevelStatus = "draft" | "approved";
 
+export interface LevelSource {
+  section_title: string | null;
+  page_start: number;
+  page_end: number;
+}
+
 export interface Level {
   id: string;
   class_id: string;
@@ -46,6 +52,8 @@ export interface Level {
   type: LevelType;
   order_index: number;
   summary: string | null;
+  key_points: string[];
+  sources: LevelSource[];
   status: LevelStatus;
 }
 
@@ -70,11 +78,20 @@ export interface Progress {
   best_score: number;
 }
 
+export interface QuizQuestionResult {
+  question_id: string;
+  your_answer: string | null;
+  is_correct: boolean;
+  correct_answer: string;
+  explanation: string | null;
+}
+
 export interface QuizSubmitResult {
   score_percent: number;
   passed: boolean;
   correct_count: number;
   total_count: number;
+  results: QuizQuestionResult[];
 }
 
 export interface LeaderboardEntry {

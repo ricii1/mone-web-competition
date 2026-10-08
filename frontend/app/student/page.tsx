@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
+import PageShell from "@/components/PageShell";
 import type { SchoolClass } from "@/lib/types";
 
 export default function StudentDashboard() {
@@ -41,24 +42,35 @@ export default function StudentDashboard() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-      <h1 className="mb-1 font-display text-2xl">Dashboard murid</h1>
-      <p className="mb-8 text-ink/60">Lanjutkan peta level kelasmu, atau join class baru.</p>
-      {error && <p className="mb-4 text-sm text-alert">{error}</p>}
+    <PageShell
+      title="Dashboard murid"
+      subtitle="Lanjutkan peta level kelasmu, atau join class baru."
+      actions={
+        <Link href="/student/live" className="btn-ghost">
+          Masuk live class
+        </Link>
+      }
+    >
+      {error && <p role="alert" className="mb-4 text-sm text-alert">{error}</p>}
       {loading && <p className="text-sm text-ink/60">Memuat...</p>}
 
-      <section className="mb-10">
-        <h2 className="mb-3 font-display text-lg">Class saya</h2>
-        {!loading && enrolled.length === 0 && <p className="text-sm text-ink/60">Belum join class apapun.</p>}
-        <ul className="flex flex-col gap-2">
+      <section className="mb-10" aria-labelledby="my-classes">
+        <h2 id="my-classes" className="mb-3 font-display text-xl">
+          Class saya
+        </h2>
+        {!loading && enrolled.length === 0 && (
+          <p className="surface text-sm text-ink/65">Belum join class apapun. Pilih class di bawah untuk mulai.</p>
+        )}
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {enrolled.map((c) => (
-            <li key={c.id} className="card flex items-center justify-between">
-              <span className="font-medium">{c.title}</span>
-              <div className="flex gap-4 text-sm">
-                <Link href={`/student/classes/${c.id}/map`} className="link-text">
-                  Map
+            <li key={c.id} className="card flex flex-col gap-3 p-5">
+              <span className="font-display text-lg leading-snug">{c.title}</span>
+              {c.description && <span className="line-clamp-2 text-sm text-ink/65">{c.description}</span>}
+              <div className="mt-auto flex gap-2 pt-1">
+                <Link href={`/student/classes/${c.id}/map`} className="btn-primary flex-1 text-sm">
+                  Buka peta
                 </Link>
-                <Link href={`/student/classes/${c.id}/leaderboard`} className="link-text">
+                <Link href={`/student/classes/${c.id}/leaderboard`} className="btn-ghost text-sm">
                   Leaderboard
                 </Link>
               </div>
@@ -67,36 +79,39 @@ export default function StudentDashboard() {
         </ul>
       </section>
 
-      <section>
-        <h2 className="mb-3 font-display text-lg">Class tersedia</h2>
-        <ul className="flex flex-col gap-2">
+      <section aria-labelledby="available-classes">
+        <h2 id="available-classes" className="mb-3 font-display text-xl">
+          Class tersedia
+        </h2>
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {available.map((c) => (
-            <li key={c.id} className="card">
-              <p className="mb-3 font-medium">
-                {c.title} <span className="text-xs font-normal text-ink/50">({c.visibility})</span>
-              </p>
-              <div className="flex gap-2">
+            <li key={c.id} className="card flex flex-col gap-3 p-5">
+              <div className="flex flex-col gap-1.5">
+                <span className="badge w-fit">{c.visibility === "private" ? "Private" : "Public"}</span>
+                <span className="font-display text-lg leading-snug">{c.title}</span>
+                {c.description && <span className="line-clamp-2 text-sm text-ink/65">{c.description}</span>}
+              </div>
+              <div className="mt-auto flex gap-2">
                 {c.visibility === "private" && (
                   <input
+                    aria-label={`Kode undangan untuk ${c.title}`}
                     placeholder="Kode undangan"
                     value={inviteCode[c.id] ?? ""}
                     onChange={(e) => setInviteCode((s) => ({ ...s, [c.id]: e.target.value }))}
-                    className="input-rule max-w-[10rem] text-sm"
+                    className="input-box min-w-0 flex-1 text-sm"
                   />
                 )}
-                <button onClick={() => handleJoin(c.id)} className="btn-primary px-3 py-1.5 text-sm">
+                <button onClick={() => handleJoin(c.id)} className="btn-primary text-sm">
                   Join
                 </button>
               </div>
             </li>
           ))}
-          {available.length === 0 && <p className="text-sm text-ink/60">Tidak ada class tersedia saat ini.</p>}
         </ul>
+        {!loading && available.length === 0 && (
+          <p className="text-sm text-ink/60">Tidak ada class tersedia saat ini.</p>
+        )}
       </section>
-
-      <Link href="/student/live" className="link-text mt-10 inline-block text-sm">
-        Masuk live class dengan kode
-      </Link>
-    </main>
+    </PageShell>
   );
 }

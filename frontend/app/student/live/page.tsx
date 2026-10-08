@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import PageShell from "@/components/PageShell";
 import { ApiError, api } from "@/lib/api";
 import { connectRealtime } from "@/lib/realtime";
 import type { LiveSession } from "@/lib/types";
@@ -71,9 +72,10 @@ export default function StudentLivePage() {
 
   if (!session) {
     return (
-      <main className="mx-auto max-w-sm px-4 py-10 sm:px-6">
-        <h1 className="mb-6 font-display text-2xl">Join live class</h1>
-        <form onSubmit={handleJoin} className="flex flex-col gap-4">
+      <PageShell width="narrow" back={{ href: "/student", label: "Class saya" }}>
+        <h1 className="mb-1 font-display text-3xl">Join live class</h1>
+        <p className="mb-6 text-ink/65">Masukkan kode yang ditampilkan gurumu.</p>
+        <form onSubmit={handleJoin} className="surface flex flex-col gap-4">
           <div className="field">
             <label htmlFor="joinCode" className="field-label">
               Kode join
@@ -83,7 +85,7 @@ export default function StudentLivePage() {
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               required
-              className="input-rule font-mono tracking-wider"
+              className="input-box py-3 text-center font-mono text-2xl uppercase tracking-[0.3em]"
             />
           </div>
           {error && <p className="text-sm text-alert">{error}</p>}
@@ -91,25 +93,25 @@ export default function StudentLivePage() {
             Join
           </button>
         </form>
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto max-w-sm px-4 py-10 sm:px-6">
-      <h1 className="mb-6 font-display text-2xl">Live class</h1>
+    <PageShell width="medium" back={{ href: "/student", label: "Keluar ke dashboard" }}>
+      <h1 className="mb-6 font-display text-3xl">Live class</h1>
       {error && <p className="mb-4 text-sm text-alert">{error}</p>}
 
       {active && (
-        <div>
-          <p className="mb-4 font-medium">{active.question_text}</p>
-          <div className="flex flex-col gap-2">
+        <div className="surface">
+          <p className="mb-5 font-display text-xl leading-snug">{active.question_text}</p>
+          <div className="grid gap-2 sm:grid-cols-2">
             {active.options.map((opt) => (
               <button
                 key={opt}
                 onClick={() => submitAnswer(opt)}
                 disabled={answered}
-                className="card text-left transition-colors hover:border-highlight disabled:cursor-not-allowed disabled:opacity-50"
+                className="card min-h-[52px] text-left transition-colors hover:border-highlight disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {opt}
               </button>
@@ -128,7 +130,11 @@ export default function StudentLivePage() {
         </div>
       )}
 
-      {!active && !closed && <p className="text-sm text-ink/60">Menunggu guru memulai soal...</p>}
-    </main>
+      {!active && !closed && (
+        <p role="status" className="surface text-center text-ink/65">
+          Menunggu guru memulai soal...
+        </p>
+      )}
+    </PageShell>
   );
 }

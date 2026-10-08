@@ -14,6 +14,21 @@
     outline: 2px solid theme("colors.highlight");
     outline-offset: 2px;
   }
+
+  body {
+    background-image: radial-gradient(rgb(27 42 65 / 0.07) 1px, transparent 1px);
+    background-size: 22px 22px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
@@ -22,7 +37,7 @@
   }
 
   .field-label {
-    @apply text-sm text-ink/70;
+    @apply text-sm font-medium text-ink/75;
   }
 
   .input-rule {
@@ -34,11 +49,11 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-sm bg-highlight px-5 py-2.5 font-medium text-ink transition-colors hover:bg-highlight-dark disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg bg-highlight px-5 py-2.5 font-medium text-ink transition-colors hover:bg-highlight-dark disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-sm border border-rule px-5 py-2.5 font-medium text-ink transition-colors hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg border border-rule px-5 py-2.5 font-medium text-ink transition-colors hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .link-text {
@@ -46,11 +61,36 @@
   }
 
   .card {
-    @apply rounded-sm border border-rule bg-white/60 p-4;
+    @apply rounded-xl border border-rule bg-white/70 p-4 shadow-sm shadow-ink/5;
+  }
+
+  .surface {
+    @apply rounded-xl border border-rule bg-white/80 p-5 shadow-sm shadow-ink/5 sm:p-6;
+  }
+
+  .card-link {
+    @apply transition-all hover:-translate-y-0.5 hover:border-ink/30 hover:shadow-md hover:shadow-ink/10;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-medium text-ink;
+  }
+  .badge-highlight {
+    @apply inline-flex items-center rounded-full bg-highlight/25 px-2.5 py-0.5 text-xs font-medium text-ink;
+  }
+  .badge-success {
+    @apply inline-flex items-center rounded-full bg-correct/15 px-2.5 py-0.5 text-xs font-medium text-correct;
+  }
+  .badge-alert {
+    @apply inline-flex items-center rounded-full bg-alert/10 px-2.5 py-0.5 text-xs font-medium text-alert;
+  }
+
+  .input-box {
+    @apply w-full rounded-lg border border-rule bg-white px-3 py-2 text-ink placeholder:text-ink/40 focus:border-highlight focus:outline-none focus:ring-2 focus:ring-highlight/30;
   }
 
   .btn-danger {
-    @apply inline-flex items-center justify-center rounded-sm border border-alert/30 px-5 py-2.5 font-medium text-alert transition-colors hover:bg-alert/10 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded-lg border border-alert/30 px-5 py-2.5 font-medium text-alert transition-colors hover:bg-alert/10 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .tagline-fade {
@@ -209,4 +249,24 @@
   .node-appear {
     animation: none;
   }
+}
+
+/* Current level on the student map: a soft ring pulse, off for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .node-current {
+    animation: node-pulse 2.2s ease-out infinite;
+  }
+  .confetti-dot {
+    animation: confetti-pop 900ms ease-out both;
+  }
+}
+
+@keyframes node-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(227 162 60 / 0.55); }
+  100% { box-shadow: 0 0 0 14px rgb(227 162 60 / 0); }
+}
+
+@keyframes confetti-pop {
+  from { opacity: 0; transform: scale(0.2) translateY(10px); }
+  to { opacity: 1; transform: none; }
 }
