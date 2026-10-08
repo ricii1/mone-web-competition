@@ -107,3 +107,16 @@ agent: "Ditambah `LLM_MODE=mock` (`app/rag/mock_llm.py`): ringkasan dan soal clo
 
 **00:55**
 agent (debugging): "Dua temuan saat verifikasi. (1) Peta dengan satu node di-zoom sangat besar karena `fitView` tanpa batas; diperbaiki dengan `maxZoom: 1`. (2) `pkill -f \"arq app.worker\"` ikut membunuh shell tool sendiri (exit 144) karena pola cocok dengan teks perintah yang sedang berjalan; diganti pola `[a]rq app.worker` di panggilan terpisah."
+
+**01:30**
+user: "lalu buat 1 agent lagi untuk mengubah ui, menambahkan tombol back. Perbaiki juga UI nya agar lebih oke dan terlihat modern, saya di laptop merasa masih banyak area kosong" + "carilah referensi dari web web kuis yang telah ada dan mungkin project orang di github ... ambil sebagai referensi styling"
+
+agent: "Referensi dicari (blog Duolingo tentang home screen berbentuk jalur, QuestEd, DevTrivia, QuizDock, studi Quizizz/Kahoot) lalu diringkas jadi brief styling untuk agent UI: peta berbentuk jalur dengan status node (selesai/aktif/terkunci), progres di atas peta, kuis dengan indikator progres dan opsi A-D besar, hasil dengan perayaan CSS ringan, podium leaderboard, lobi live ala Kahoot. Dependency seperti Framer Motion/confetti/Shadcn sengaja tidak dipakai (AGENTS.md melarang dependency besar; halaman murid harus ringan). Agent UI menambah `BackLink`, `Breadcrumb`, `PageShell`, `ClassBadges`, header sticky, layout multi-kolom `max-w-6xl`, token CSS baru (`.surface`, `.badge*`, `.input-box`)."
+
+**01:45**
+user: "kita coba samakan dulu konsep edumap ini ... isinya hanya Review Soal doang, tidak ada rangkuman materi" → memilih: ringkasan + poin penting + sumber, fokus alur level utuh
+
+agent: "Backend: migrasi 0005 `levels.key_points`, ringkasan AI = paragraf + 3-6 poin penting (mock hanya dari kalimat materi), `sources` dari level_chunks, PATCH ringkasan/poin, approve level wajib punya soal approved, hasil submit berisi pembahasan per soal. Frontend: halaman level guru jadi editor dua tab (Rangkuman/Soal, edit soal, tambah soal manual), halaman murid: rangkuman → poin penting → kuis → pembahasan → unlock. Diverifikasi di browser dengan data nyata: murid4 menyelesaikan level 1 (100%), level 2 terbuka, leaderboard naik (Dewi 100 di peringkat 3). 74 test lolos."
+
+**01:50**
+agent (debugging): "uvicorn `--reload` macet saat reload karena memicu migrasi file baru sementara koneksi WebSocket masih terbuka ('Waiting for background tasks to complete'), semua request time out. Diperbaiki dengan restart proses uvicorn. Agent UI juga melaporkan `.field` dipakai sebagai kelas input padahal itu kelas pembungkus; diganti ke `.input-box`. Level seed lama tidak punya `key_points` setelah migrasi 0005; di-backfill dengan skrip sekali jalan tanpa menghapus akun pengguna."
