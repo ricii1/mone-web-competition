@@ -22,6 +22,8 @@ async def generate_levels(
     cls = class_service.get_class_or_404(db, class_id)
     class_service.require_owner(cls, teacher)
 
+    level_service.request_generation(db, cls)
+
     pool = await get_arq_pool()
     await pool.enqueue_job("generate_levels_and_questions", str(class_id))
     return {"status": "queued"}

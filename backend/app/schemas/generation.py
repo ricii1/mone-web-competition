@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class GeneratedLevelSummary(BaseModel):
@@ -11,6 +11,12 @@ class GeneratedQuestion(BaseModel):
     correct_answer: str
     explanation: str
 
+    @model_validator(mode="after")
+    def _answer_must_be_an_option(self) -> "GeneratedQuestion":
+        if self.correct_answer not in self.options:
+            raise ValueError("correct_answer must be exactly one of options")
+        return self
+
 
 class GeneratedQuestionsOutput(BaseModel):
-    questions: list[GeneratedQuestion]
+    questions: list[GeneratedQuestion] = Field(min_length=1)

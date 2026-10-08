@@ -19,6 +19,13 @@ class ClassStatus(enum.StrEnum):
     published = "published"
 
 
+class GenerationStatus(enum.StrEnum):
+    idle = "idle"
+    generating = "generating"
+    done = "done"
+    failed = "failed"
+
+
 class Class(UUIDPKMixin, TimestampMixin, Base):
     __tablename__ = "classes"
 
@@ -33,6 +40,12 @@ class Class(UUIDPKMixin, TimestampMixin, Base):
         Enum(ClassStatus, name="class_status"), default=ClassStatus.draft
     )
     is_example: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    generation_status: Mapped[GenerationStatus] = mapped_column(
+        Enum(GenerationStatus, name="generation_status"),
+        default=GenerationStatus.idle,
+        server_default="idle",
+    )
+    generation_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Enrollment(UUIDPKMixin, Base):

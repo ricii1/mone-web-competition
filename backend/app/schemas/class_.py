@@ -2,7 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.models.class_ import ClassStatus, ClassVisibility
+from app.models.class_ import ClassStatus, ClassVisibility, GenerationStatus
 
 
 class ClassCreateRequest(BaseModel):
@@ -20,6 +20,8 @@ class ClassResponse(BaseModel):
     status: ClassStatus
     invite_code: str | None = None
     is_example: bool = False
+    generation_status: GenerationStatus = GenerationStatus.idle
+    generation_error: str | None = None
 
     model_config = {"from_attributes": True}
 

@@ -13,8 +13,11 @@ MaterialStage = Literal[
     "failed",
 ]
 
+GenerationStage = Literal["generating_levels", "generating_questions", "done", "failed"]
+
 EventType = Literal[
     "material_progress",
+    "generation_progress",
     "level_created",
     "leaderboard_updated",
     "live_session_update",
@@ -30,6 +33,14 @@ class RealtimeEvent(BaseModel):
 class MaterialProgressPayload(BaseModel):
     material_id: str
     stage: MaterialStage
+    current: int = 0
+    total: int = 0
+    error_message: str | None = None
+
+
+class GenerationProgressPayload(BaseModel):
+    class_id: str
+    stage: GenerationStage
     current: int = 0
     total: int = 0
     error_message: str | None = None
