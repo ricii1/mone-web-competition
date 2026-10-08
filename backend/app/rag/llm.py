@@ -9,6 +9,7 @@ from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
 
 from app.core.config import settings
+from app.rag.mock_llm import mock_structured
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 GROQ_MAX_CALLS_PER_MINUTE = 30
@@ -79,6 +80,9 @@ async def call_groq_structured(
     redis: Redis, system_prompt: str, user_prompt: str, schema: type[T]
 ) -> T:
     """Panggil Groq, validasi JSON dengan Pydantic, retry maksimal 2 kali jika gagal parse."""
+    if settings.llm_mode == "mock":
+        return await mock_structured(user_prompt, schema)
+
     last_error: Exception | None = None
     current_user_prompt = user_prompt
 

@@ -119,6 +119,7 @@ Semua config lewat env (lihat `.env.example`). Jangan pernah hardcode secret ata
 | `JWT_SECRET`, `JWT_EXPIRES_MINUTES` | Konfigurasi token |
 | `GROQ_API_KEY` | API key Groq |
 | `GROQ_MODEL` | Nama model Groq; cek daftar model aktif di console Groq, jangan hardcode di kode |
+| `LLM_MODE` | `groq` (default) atau `mock`: jawaban offline dari konteks materi untuk demo/dev tanpa API key; `MOCK_LLM_DELAY_SECONDS` mengatur jeda tiruan |
 | `EMBEDDING_MODEL` | Default `intfloat/multilingual-e5-small` |
 | `EMBEDDING_DIM` | Default `384`, harus sama dengan dimensi kolom `vector` |
 | `UPLOAD_DIR` | Folder penyimpanan PDF (volume Docker) |

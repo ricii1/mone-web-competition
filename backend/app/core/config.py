@@ -14,6 +14,9 @@ class Settings(BaseSettings):
 
     groq_api_key: str = ""
     groq_model: str = ""
+    # "groq" calls the real API; "mock" answers offline from the prompt context (demo/dev).
+    llm_mode: str = "groq"
+    mock_llm_delay_seconds: float = 0.8
 
     embedding_model: str = "intfloat/multilingual-e5-small"
     embedding_dim: int = 384

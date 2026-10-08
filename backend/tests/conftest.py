@@ -52,6 +52,13 @@ def _clean_tables():
 
 
 @pytest.fixture(autouse=True)
+def _real_llm_mode(monkeypatch):
+    """A dev .env may set LLM_MODE=mock; tests use the real path unless they opt in."""
+    monkeypatch.setattr(settings, "llm_mode", "groq")
+    monkeypatch.setattr(settings, "mock_llm_delay_seconds", 0)
+
+
+@pytest.fixture(autouse=True)
 def _fake_redis():
     pubsub._redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     yield pubsub._redis

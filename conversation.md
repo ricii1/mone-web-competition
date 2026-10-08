@@ -94,3 +94,16 @@ agent: "`AuthHero` diubah dari SVG statis menjadi motion graphic loop 10 detik b
 user: "[screenshot dashboard guru kosong] kok kesannya kosong banget ya, apa bagusnya kita kasih example class ya?" → setelah ditanya, user memilih: "Setiap guru baru tidak perlu muat class contoh tapi lgsg ada kelas referensi atau template ... Tujuannya itu memberi guru gambaran"
 
 agent: "Setiap guru yang register otomatis mendapat class referensi 'Contoh: Biologi Sel Kelas XI' (private, draft, kolom baru `classes.is_example` lewat migrasi 0003). Level pertama + soalnya `approved`, sisanya `draft` agar guru melihat alur review. Class contoh tidak bisa di-publish (400) dan tidak muncul di daftar publik. Konten dipindah ke `services/example_class.py` dan dipakai bersama seeder; `python -m app.db.seed --examples` mengisi guru lama (akun Junathan dan guru seed). Dashboard guru sekarang menampilkan daftar class di atas form, dengan badge 'Contoh' dan deskripsi. Test baru: guru dapat contoh/murid tidak, contoh tidak bisa publish dan tidak publik; satu test lama diperbarui karena guru baru kini punya 1 class bawaan (bukan dilemahkan). 44 test lolos, ruff dan lint bersih."
+
+**00:20**
+user: "oh ini fitur generate mapnya belum ya? Commit dulu baru kita lanjutkan buat fitur generate map, buat agent juga untuk mempercepat"
+
+agent: "Perubahan sebelumnya di-commit (4 commit kecil). Audit fitur generate: endpoint + job sudah ada, tapi status generate tidak disimpan di Postgres, event progres memakai `class_id` sebagai `material_id`, job menolak jalan ulang jika level sudah ada (retry setelah gagal sebagian mustahil), `correct_answer` tidak divalidasi terhadap `options`, endpoint langsung enqueue tanpa validasi, dan job tidak punya test. Dua subagent dijalankan paralel dengan kontrak yang sama: (backend) migrasi 0004 `generation_status`/`generation_error`, event `generation_progress`, regenerasi yang mengganti level draft dan menolak jika ada level approved, validasi di endpoint (400/409), 12 test job; (frontend) peta level guru (LevelMap mode guru, node muncul satu per satu), blok progres 'level X dari Y', error + 'Coba lagi', 'Generate ulang' dengan konfirmasi inline."
+
+**00:50**
+user: "buat mode demo tanpa Groq terlebih dahulu, mock dulu aja response groq nya, jika sudah bisa fungsionalnya baru kita testing generate dengan llm"
+
+agent: "Ditambah `LLM_MODE=mock` (`app/rag/mock_llm.py`): ringkasan dan soal cloze dibuat offline hanya dari konteks materi (prinsip 'AI tidak mengarang' tetap terjaga), dengan jeda tiruan `MOCK_LLM_DELAY_SECONDS` agar progres terlihat. Test selalu memaksa mode `groq` lewat fixture agar `.env` dev tidak memengaruhi. Diuji end-to-end lewat API: guru baru → class → materi ready (chunk disisipkan langsung, tanpa model embedding) → generate: 400 tanpa materi, 202, 409 saat sedang jalan, hasil 5 level + 1 boss berantai linear, semua draft; lalu di browser 'Generate ulang' menampilkan bar progres dan node muncul bertahap. 59 test lolos."
+
+**00:55**
+agent (debugging): "Dua temuan saat verifikasi. (1) Peta dengan satu node di-zoom sangat besar karena `fitView` tanpa batas; diperbaiki dengan `maxZoom: 1`. (2) `pkill -f \"arq app.worker\"` ikut membunuh shell tool sendiri (exit 144) karena pola cocok dengan teks perintah yang sedang berjalan; diganti pola `[a]rq app.worker` di panggilan terpisah."
