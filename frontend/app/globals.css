@@ -74,3 +74,118 @@
     transform: none;
   }
 }
+
+/* Auth hero motion graphic: one 10s loop, driven purely by CSS (no JS, no extra dependency).
+   Without motion, the base styles show the finished map. */
+.hero-node,
+.hero-node circle,
+.hero-burst,
+.hero-pulse,
+.hero-player,
+.hero-xp {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.hero-player,
+.hero-burst,
+.hero-pulse,
+.hero-xp {
+  opacity: 0;
+}
+.hero-boss-fill {
+  fill: #e3a23c;
+}
+.hero-trail {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-stage {
+    animation: hero-stage 10s linear infinite;
+  }
+  .hero-trail {
+    animation: hero-trail 10s linear infinite;
+  }
+  .hero-player {
+    offset-path: path("M40,220 L130,160 L100,80 L200,40");
+    animation:
+      hero-travel 10s linear infinite,
+      hero-player-vis 10s linear infinite;
+  }
+  .hero-node-a { animation: hero-pop-a 10s ease-out infinite; }
+  .hero-node-b { animation: hero-pop-b 10s ease-out infinite; }
+  .hero-node-c { animation: hero-pop-c 10s ease-out infinite; }
+  .hero-node-d { animation: hero-pop-d 10s ease-out infinite; }
+  .hero-pulse { animation: hero-pulse 1.8s ease-out 3.6s infinite; }
+  .hero-boss-fill { animation: hero-boss-fill 10s linear infinite; }
+  .hero-burst { animation: hero-burst 10s ease-out infinite; }
+  .hero-xp-b { animation: hero-xp-b 10s ease-out infinite; }
+  .hero-xp-c { animation: hero-xp-c 10s ease-out infinite; }
+  .hero-float-a { animation: hero-float 7s ease-in-out infinite; }
+  .hero-float-b { animation: hero-float 9s ease-in-out -3s infinite; }
+  .hero-float-c { animation: hero-float 11s ease-in-out -6s infinite; }
+  .hero-dot { opacity: 0.35; }
+}
+
+@keyframes hero-stage {
+  0% { opacity: 0; }
+  3%, 92% { opacity: 1; }
+  99%, 100% { opacity: 0; }
+}
+@keyframes hero-trail {
+  0% { stroke-dashoffset: 100; }
+  60%, 100% { stroke-dashoffset: 0; }
+}
+@keyframes hero-travel {
+  0% { offset-distance: 0%; }
+  60%, 100% { offset-distance: 100%; }
+}
+@keyframes hero-player-vis {
+  0%, 1% { opacity: 0; }
+  3%, 60% { opacity: 1; }
+  64%, 100% { opacity: 0; }
+}
+@keyframes hero-pop-a {
+  0% { opacity: 0; transform: scale(0.2); }
+  4%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes hero-pop-b {
+  0%, 20% { opacity: 0; transform: scale(0.2); }
+  26%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes hero-pop-c {
+  0%, 36% { opacity: 0; transform: scale(0.2); }
+  42%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes hero-pop-d {
+  0%, 56% { opacity: 0; transform: scale(0.2); }
+  62%, 100% { opacity: 1; transform: scale(1); }
+}
+@keyframes hero-boss-fill {
+  0%, 68% { fill: #3a4c66; }
+  72%, 100% { fill: #e3a23c; }
+}
+@keyframes hero-pulse {
+  0% { opacity: 0.55; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2.4); }
+}
+@keyframes hero-burst {
+  0%, 68% { opacity: 0; transform: scale(1); }
+  70% { opacity: 0.8; transform: scale(1); }
+  82%, 100% { opacity: 0; transform: scale(3.2); }
+}
+@keyframes hero-xp-b {
+  0%, 24% { opacity: 0; transform: translateY(0); }
+  27% { opacity: 1; }
+  38%, 100% { opacity: 0; transform: translateY(-16px); }
+}
+@keyframes hero-xp-c {
+  0%, 40% { opacity: 0; transform: translateY(0); }
+  43% { opacity: 1; }
+  54%, 100% { opacity: 0; transform: translateY(-16px); }
+}
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
