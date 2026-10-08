@@ -1,0 +1,7 @@
+Buat ringkasan singkat (3-5 kalimat) dalam Bahasa Indonesia dari konteks materi berikut, untuk ditampilkan ke murid sebagai penjelasan sebelum kuis. Ringkasan harus HANYA berdasarkan konteks ini.
+
+Konteks materi:
+{context}
+
+Kembalikan HANYA JSON valid dengan skema berikut, tanpa teks lain:
+{{"summary": "..."}}

@@ -1,0 +1,16 @@
+Buat {num_questions} soal pilihan ganda (4 opsi) dalam Bahasa Indonesia berdasarkan HANYA konteks materi berikut. Setiap soal harus bisa dijawab langsung dari konteks ini.
+
+Konteks materi:
+{context}
+
+Kembalikan HANYA JSON valid dengan skema berikut, tanpa teks lain:
+{{
+  "questions": [
+    {{
+      "question_text": "...",
+      "options": ["opsi A", "opsi B", "opsi C", "opsi D"],
+      "correct_answer": "opsi yang benar, harus sama persis dengan salah satu options",
+      "explanation": "penjelasan singkat mengapa jawaban itu benar, mengacu ke konteks"
+    }}
+  ]
+}}
