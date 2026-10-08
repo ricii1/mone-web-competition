@@ -2,15 +2,35 @@ import fakeredis.aioredis
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 import app.realtime.pubsub as pubsub
 from app.core.config import settings
 from app.db.base import Base
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.main import app
 
-engine = create_engine(settings.database_url)
+# Tests wipe tables, so they must never run against the development database.
+_dev_url = make_url(settings.database_url)
+_test_url = _dev_url.set(database=f"{_dev_url.database}_test")
+
+
+def _ensure_test_database() -> None:
+    admin = create_engine(_dev_url, isolation_level="AUTOCOMMIT")
+    with admin.connect() as conn:
+        exists = conn.exec_driver_sql(
+            "SELECT 1 FROM pg_database WHERE datname = %s", (_test_url.database,)
+        ).first()
+        if exists is None:
+            conn.exec_driver_sql(f'CREATE DATABASE "{_test_url.database}"')
+    admin.dispose()
+
+
+_ensure_test_database()
+engine = create_engine(_test_url)
+# Worker jobs and websockets open their own sessions via SessionLocal; point them at the test DB.
+SessionLocal.configure(bind=engine)
 TestSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 

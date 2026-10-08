@@ -10,3 +10,7 @@ uploads/
 .ruff_cache/
 .pytest_cache/
 .claude/
+*.egg-info/
+logs/
+.env.local
+*.tsbuildinfo
