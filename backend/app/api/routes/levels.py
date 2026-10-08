@@ -32,7 +32,7 @@ async def generate_levels(
 @router.get("/api/v1/classes/{class_id}/levels", response_model=list[LevelResponse])
 def list_levels(
     class_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)
-) -> list[Level]:
+) -> list[LevelResponse]:
     cls = class_service.get_class_or_404(db, class_id)
     is_owner = cls.teacher_id == user.id
     if not is_owner:
@@ -44,7 +44,8 @@ def list_levels(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Belum join class ini"
             )
-    return level_service.list_levels_for_class(db, class_id)
+    levels = level_service.list_levels_for_class(db, class_id)
+    return level_service.build_level_responses(db, levels)
 
 
 def _require_level_owner(db: Session, level_id: UUID, teacher: User) -> Level:
@@ -60,9 +61,10 @@ def update_level(
     body: LevelUpdateRequest,
     teacher: User = Depends(require_teacher),
     db: Session = Depends(get_db),
-) -> Level:
+) -> LevelResponse:
     level = _require_level_owner(db, level_id, teacher)
-    return level_service.update_level(db, level, body)
+    updated = level_service.update_level(db, level, body)
+    return level_service.build_level_responses(db, [updated])[0]
 
 
 @router.delete("/api/v1/levels/{level_id}", status_code=status.HTTP_204_NO_CONTENT)

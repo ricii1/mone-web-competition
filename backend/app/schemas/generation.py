@@ -1,8 +1,23 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class GeneratedLevelSummary(BaseModel):
-    summary: str
+    summary: str = Field(min_length=1)
+    key_points: list[str] = Field(min_length=3, max_length=6)
+
+    @field_validator("summary")
+    @classmethod
+    def _summary_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("summary must not be blank")
+        return value
+
+    @field_validator("key_points")
+    @classmethod
+    def _points_not_blank(cls, value: list[str]) -> list[str]:
+        if any(not point.strip() for point in value):
+            raise ValueError("key_points items must not be blank")
+        return value
 
 
 class GeneratedQuestion(BaseModel):

@@ -20,13 +20,18 @@ EXAMPLE_DESCRIPTION = (
     "Class ini tidak bisa dipublish; buat class baru untuk materi Anda sendiri."
 )
 
-# (title, type, summary, [(question, options, correct index, explanation)])
+# (title, type, summary, key_points, [(question, options, correct index, explanation)])
 BIOLOGY_LEVELS = [
     (
         "Pengenalan Sel",
         LevelType.lesson_quiz,
         "Sel adalah unit struktural dan fungsional terkecil makhluk hidup. Sel prokariotik "
         "tidak memiliki membran inti, sedangkan sel eukariotik memilikinya.",
+        [
+            "Sel adalah unit struktural dan fungsional terkecil makhluk hidup.",
+            "Sel prokariotik tidak memiliki membran inti.",
+            "Sel eukariotik memiliki membran inti.",
+        ],
         [
             (
                 "Apa unit struktural dan fungsional terkecil makhluk hidup?",
@@ -71,6 +76,12 @@ BIOLOGY_LEVELS = [
         "Organel menjalankan fungsi khusus: mitokondria menghasilkan energi, ribosom membuat "
         "protein, dan kloroplas melakukan fotosintesis pada sel tumbuhan.",
         [
+            "Organel menjalankan fungsi khusus di dalam sel.",
+            "Mitokondria menghasilkan energi.",
+            "Ribosom membuat protein.",
+            "Kloroplas melakukan fotosintesis pada sel tumbuhan.",
+        ],
+        [
             (
                 "Organel penghasil energi (ATP) adalah...",
                 ["Ribosom", "Mitokondria", "Lisosom", "Vakuola"],
@@ -109,6 +120,12 @@ BIOLOGY_LEVELS = [
         "Membran sel bersifat selektif permeabel. Difusi dan osmosis berjalan tanpa energi, "
         "sedangkan transpor aktif memerlukan energi.",
         [
+            "Membran sel bersifat selektif permeabel.",
+            "Difusi berjalan tanpa energi.",
+            "Osmosis berjalan tanpa energi.",
+            "Transpor aktif memerlukan energi.",
+        ],
+        [
             (
                 "Perpindahan zat dari konsentrasi tinggi ke rendah disebut...",
                 ["Difusi", "Transpor aktif", "Endositosis", "Eksositosis"],
@@ -145,6 +162,11 @@ BIOLOGY_LEVELS = [
         "Boss: Biologi Sel",
         LevelType.boss,
         "Gabungan materi pengenalan sel, organel, dan transpor membran.",
+        [
+            "Sel prokariotik tidak punya membran inti, sel eukariotik punya.",
+            "Mitokondria menghasilkan energi, ribosom membuat protein, kloroplas berfotosintesis.",
+            "Difusi dan osmosis tanpa energi, transpor aktif memerlukan energi.",
+        ],
         [
             (
                 "Organel yang disebut 'pembangkit tenaga' sel adalah...",
@@ -207,7 +229,7 @@ def build_class(
     db.flush()
 
     created: list[Level] = []
-    for index, (level_title, level_type, summary, questions) in enumerate(levels):
+    for index, (level_title, level_type, summary, key_points, questions) in enumerate(levels):
         approved = index < approved_levels
         level = Level(
             class_id=cls.id,
@@ -216,6 +238,7 @@ def build_class(
             type=level_type,
             order_index=index,
             summary=summary,
+            key_points=key_points,
             status=LevelStatus.approved if approved else LevelStatus.draft,
         )
         db.add(level)

@@ -39,6 +39,11 @@ DRAFT_LEVELS = [
         LevelType.lesson_quiz,
         "Hukum I Newton: benda diam tetap diam kecuali ada gaya luar.",
         [
+            "Benda diam cenderung tetap diam.",
+            "Perubahan gerak hanya terjadi bila ada gaya luar.",
+            "Sifat ini disebut inersia (kelembaman).",
+        ],
+        [
             (
                 "Hukum I Newton disebut juga hukum...",
                 ["Inersia", "Aksi-reaksi", "Gravitasi", "Kekekalan energi"],

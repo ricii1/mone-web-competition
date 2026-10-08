@@ -24,6 +24,38 @@ async def test_mock_summary_comes_from_context(mock_mode):
     assert set(result.summary.split()) <= set(CONTEXT.split())
 
 
+def _bare(text: str) -> set[str]:
+    return {w.strip(".,;:").lower() for w in text.split()}
+
+
+async def test_mock_key_points_are_grounded_in_context(mock_mode):
+    prompt = load_prompt("summarize_level").format(context=CONTEXT)
+    result = await call_groq_structured(None, "sys", prompt, GeneratedLevelSummary)
+    assert 3 <= len(result.key_points) <= 6
+    for point in result.key_points:
+        assert _bare(point) <= _bare(CONTEXT)
+
+
+async def test_mock_key_points_prefer_later_sentences(mock_mode):
+    context = CONTEXT + (
+        " Membran sel mengatur zat yang keluar masuk sel. "
+        "Lisosom mencerna sisa zat di dalam sel hidup."
+    )
+    prompt = load_prompt("summarize_level").format(context=context)
+    result = await call_groq_structured(None, "sys", prompt, GeneratedLevelSummary)
+    assert result.key_points[0].startswith("Membran sel")
+    for point in result.key_points:
+        assert _bare(point) <= _bare(context)
+
+
+async def test_mock_summary_rejects_context_without_enough_key_points(mock_mode):
+    prompt = load_prompt("summarize_level").format(
+        context="Mitokondria adalah organel yang menghasilkan energi bagi sel."
+    )
+    with pytest.raises(MockLlmError):
+        await call_groq_structured(None, "sys", prompt, GeneratedLevelSummary)
+
+
 async def test_mock_questions_are_valid_and_grounded(mock_mode):
     prompt = load_prompt("generate_questions").format(num_questions=5, context=CONTEXT)
     result = await call_groq_structured(None, "sys", prompt, GeneratedQuestionsOutput)

@@ -5,10 +5,10 @@ from sqlalchemy.orm import Session
 
 from app.models.class_ import Class, GenerationStatus
 from app.models.level import Level, LevelChunk, LevelStatus
-from app.models.material import Material, VectorStatus
+from app.models.material import Material, MaterialChunk, VectorStatus
 from app.models.progress import Attempt, Progress
 from app.models.question import Question, QuestionStatus
-from app.schemas.level import LevelUpdateRequest
+from app.schemas.level import LevelResponse, LevelSourceResponse, LevelUpdateRequest
 
 LEVELS_PER_BOSS = 4
 QUESTIONS_PER_LEVEL = 5
@@ -16,6 +16,33 @@ QUESTIONS_PER_LEVEL = 5
 
 def list_levels_for_class(db: Session, class_id: UUID) -> list[Level]:
     return db.query(Level).filter(Level.class_id == class_id).order_by(Level.order_index).all()
+
+
+def build_level_responses(db: Session, levels: list[Level]) -> list[LevelResponse]:
+    """Serialize levels with their source sections using one query for all of them."""
+    sources: dict[UUID, list[LevelSourceResponse]] = {level.id: [] for level in levels}
+    if levels:
+        rows = (
+            db.query(LevelChunk.level_id, MaterialChunk)
+            .join(MaterialChunk, MaterialChunk.id == LevelChunk.chunk_id)
+            .filter(LevelChunk.level_id.in_(list(sources)))
+            .order_by(MaterialChunk.page_start, MaterialChunk.page_end)
+            .all()
+        )
+        for level_id, chunk in rows:
+            sources[level_id].append(
+                LevelSourceResponse(
+                    section_title=chunk.section_title,
+                    page_start=chunk.page_start,
+                    page_end=chunk.page_end,
+                )
+            )
+    responses = []
+    for level in levels:
+        response = LevelResponse.model_validate(level)
+        response.sources = sources[level.id]
+        responses.append(response)
+    return responses
 
 
 def get_level_or_404(db: Session, level_id: UUID) -> Level:
@@ -32,11 +59,28 @@ def update_level(db: Session, level: Level, body: LevelUpdateRequest) -> Level:
         level.order_index = body.order_index
     if body.prerequisite_id is not None or body.clear_prerequisite:
         level.prerequisite_id = None if body.clear_prerequisite else body.prerequisite_id
+    if body.summary is not None:
+        level.summary = body.summary
+    if body.key_points is not None:
+        level.key_points = body.key_points
     if body.status is not None:
+        if body.status == LevelStatus.approved and not _has_approved_question(db, level.id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Level belum punya soal approved"
+            )
         level.status = body.status
     db.commit()
     db.refresh(level)
     return level
+
+
+def _has_approved_question(db: Session, level_id: UUID) -> bool:
+    return (
+        db.query(Question.id)
+        .filter(Question.level_id == level_id, Question.status == QuestionStatus.approved)
+        .first()
+        is not None
+    )
 
 
 def delete_level(db: Session, level: Level) -> None:

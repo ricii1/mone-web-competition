@@ -40,8 +40,17 @@ class QuizSubmitRequest(BaseModel):
     answers: dict[UUID, str]
 
 
+class QuestionResult(BaseModel):
+    question_id: UUID
+    your_answer: str | None
+    is_correct: bool
+    correct_answer: str
+    explanation: str | None
+
+
 class QuizSubmitResponse(BaseModel):
     score_percent: int
     passed: bool
     correct_count: int
     total_count: int
+    results: list[QuestionResult] = []

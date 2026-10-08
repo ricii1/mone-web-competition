@@ -2,7 +2,7 @@ import enum
 import uuid
 
 from sqlalchemy import Enum, ForeignKey, Integer, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin, UUIDPKMixin
@@ -29,6 +29,7 @@ class Level(UUIDPKMixin, TimestampMixin, Base):
     type: Mapped[LevelType] = mapped_column(Enum(LevelType, name="level_type"))
     order_index: Mapped[int] = mapped_column(Integer)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    key_points: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
     status: Mapped[LevelStatus] = mapped_column(
         Enum(LevelStatus, name="level_status"), default=LevelStatus.draft
     )

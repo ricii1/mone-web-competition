@@ -47,12 +47,12 @@ def _set_generation_state(
     db.commit()
 
 
-async def _summarize(redis, content: str) -> str:
+async def _summarize(redis, content: str) -> GeneratedLevelSummary:
     prompt = load_prompt("summarize_level").format(context=content[:MAX_CONTEXT_CHARS])
     result: GeneratedLevelSummary = await call_groq_structured(
         redis, load_prompt("system_tutor"), prompt, GeneratedLevelSummary
     )
-    return result.summary
+    return result
 
 
 async def _generate_questions(db, redis, level: Level, chunks: list[MaterialChunk]) -> None:
@@ -114,14 +114,15 @@ async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
         boss_count = 0
 
         for idx, chunk in enumerate(chunks):
-            summary = await _summarize(redis, chunk.content)
+            lesson = await _summarize(redis, chunk.content)
             level = Level(
                 class_id=class_id_uuid,
                 prerequisite_id=prev_level_id,
                 title=chunk.section_title or f"Bagian {idx + 1}",
                 type=LevelType.lesson_quiz,
                 order_index=order_index,
-                summary=summary,
+                summary=lesson.summary,
+                key_points=lesson.key_points,
             )
             db.add(level)
             db.commit()
@@ -151,14 +152,15 @@ async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
             is_last = idx == len(chunks) - 1
             if len(boss_group) >= LEVELS_PER_BOSS and not is_last:
                 boss_count += 1
-                boss_summary = await _summarize(redis, "\n\n".join(c.content for c in boss_group))
+                boss_lesson = await _summarize(redis, "\n\n".join(c.content for c in boss_group))
                 boss_level = Level(
                     class_id=class_id_uuid,
                     prerequisite_id=prev_level_id,
                     title=f"Tantangan Boss {boss_count}",
                     type=LevelType.boss,
                     order_index=order_index,
-                    summary=boss_summary,
+                    summary=boss_lesson.summary,
+                    key_points=boss_lesson.key_points,
                 )
                 db.add(boss_level)
                 db.commit()

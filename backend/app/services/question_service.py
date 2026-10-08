@@ -6,7 +6,12 @@ from sqlalchemy.orm import Session
 from app.models.level import Level
 from app.models.progress import Attempt, ProgressStatus
 from app.models.question import Question, QuestionStatus
-from app.schemas.question import QuestionCreateRequest, QuestionUpdateRequest, QuizSubmitResponse
+from app.schemas.question import (
+    QuestionCreateRequest,
+    QuestionResult,
+    QuestionUpdateRequest,
+    QuizSubmitResponse,
+)
 from app.services.leaderboard_service import on_best_score_changed
 from app.services.progress_service import PASSING_SCORE, get_or_create_progress, record_quiz_result
 
@@ -69,11 +74,22 @@ async def submit_quiz(
         )
 
     correct_count = 0
+    results: list[QuestionResult] = []
     for question in approved_questions:
-        user_answer = answers.get(question.id, "")
+        submitted = answers.get(question.id)
+        user_answer = submitted or ""
         is_correct = user_answer == question.correct_answer
         if is_correct:
             correct_count += 1
+        results.append(
+            QuestionResult(
+                question_id=question.id,
+                your_answer=submitted,
+                is_correct=is_correct,
+                correct_answer=question.correct_answer,
+                explanation=question.explanation,
+            )
+        )
         db.add(
             Attempt(
                 user_id=student_id,
@@ -94,4 +110,5 @@ async def submit_quiz(
         passed=score_percent >= PASSING_SCORE,
         correct_count=correct_count,
         total_count=total_count,
+        results=results,
     )

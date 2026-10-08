@@ -61,7 +61,7 @@ def _fake_question(i: int) -> GeneratedQuestion:
 
 async def _fake_groq(redis, system_prompt, user_prompt, model_cls):
     if model_cls is GeneratedLevelSummary:
-        return GeneratedLevelSummary(summary="ringkasan")
+        return GeneratedLevelSummary(summary="ringkasan", key_points=["a", "b", "c"])
     return GeneratedQuestionsOutput(questions=[_fake_question(i) for i in range(5)])
 
 
@@ -92,6 +92,7 @@ async def test_success_creates_levels_with_boss_and_chain(db, events):
     for prev, cur in zip(levels, levels[1:], strict=False):
         assert cur.prerequisite_id == prev.id
     assert all(lv.status == LevelStatus.draft for lv in levels)
+    assert all(lv.key_points == ["a", "b", "c"] for lv in levels)
     for lv in levels:
         questions = db.query(Question).filter_by(level_id=lv.id).all()
         assert len(questions) == 5
