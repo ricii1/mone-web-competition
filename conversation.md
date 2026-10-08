@@ -66,3 +66,31 @@ agent: "Menjalankan `git init`, menambahkan `.claude/` ke `.gitignore`, staging 
 user: "Sama timestamp waktunya bisakah?"
 
 agent: "Menambahkan timestamp di setiap entri percakapan pada `conversation.md`"
+
+## 2026-10-08
+
+**22:35**
+user: "pelajari repo ini dan AGENTS.md lalu setup agar bisa dijalankan di sini" (lalu: "jangan pakai venv tapi pakai conda, agar hemat memori")
+
+agent: "Setup native memakai conda env `edumap` (python 3.11 + nodejs 20, torch CPU); hanya postgres (pgvector) dan redis lewat Docker. `.env` disesuaikan untuk host localhost (DB port 5433), backend/frontend `.env` di-symlink. Migrasi alembic dijalankan, 42 test lolos, API :8000, worker arq, frontend :3000 berjalan."
+
+**22:36**
+agent (debugging): "`pip install -e backend` gagal: 'Multiple top-level packages discovered in a flat-layout: app, alembic' karena setuptools menemukan dua paket di root backend. Build Docker akan gagal dengan sebab yang sama. Diperbaiki dengan `[tool.setuptools.packages.find] include = [\"app*\"]` di `pyproject.toml`. Selain itu pytest crash di luar Docker karena `PYTHONPATH` ROS memuat plugin pytest `launch` yang butuh `lark`; diatasi dengan `unset PYTHONPATH`. Dua test CORS awalnya gagal karena `CORS_ORIGINS` sempat saya set ke port 3001 (mengikuti mapping compose); dikembalikan ke 3000 karena port 3000/8000 kosong di mesin ini."
+
+**22:58**
+user: "buatkan seeder nya terlebih dahulu"
+
+agent: "Dibuat `backend/app/db/seed.py` (`python -m app.db.seed`, idempotent): 1 guru, 4 murid (password `password123`), class publik 'Biologi Sel Kelas XI' (3 level + boss, soal `approved`, progres murid disimpan lewat `record_quiz_result` agar aturan unlock/best_score konsisten, cache leaderboard Redis dibangun ulang) dan 1 class privat draft. Chunk/embedding tidak di-seed karena butuh model embedding di worker."
+
+**23:05**
+agent (debugging): "Seeder gagal: `relation \"users\" does not exist` padahal migrasi sudah jalan. Penyebab: `tests/conftest.py` memakai `settings.database_url` (DB development) lalu `drop_all` di akhir sesi dan `delete` di tiap test, jadi setiap `pytest` menghapus seluruh tabel dev sementara `alembic_version` tetap di head (sehingga `alembic upgrade head` tidak melakukan apa-apa). Perbaikan: test sekarang memakai DB terpisah `<nama>_test` (dibuat otomatis) dan `SessionLocal` di-rebind ke DB test agar job worker/WebSocket tidak menyentuh DB dev. DB dev dipulihkan dengan `alembic stamp base` + `upgrade head`, lalu di-seed. 42 test lolos."
+
+**23:30**
+user: "sidebar di login dan register itu apa gabisa dibuat kek semacam motion graphic animation"
+
+agent: "`AuthHero` diubah dari SVG statis menjadi motion graphic loop 10 detik berbasis CSS murni (tanpa dependency/JS): jalur emas tergambar, titik pemain bergerak di sepanjang jalur (`offset-path`), node Mulai → Bab 1 → Bab 2 muncul berurutan dengan efek '+100', node Boss terbuka dengan ring burst, plus partikel melayang. Panel tetap berada di layout bersama sehingga tidak remount. Di `prefers-reduced-motion` animasi mati dan peta ditampilkan dalam keadaan selesai. Diverifikasi di browser dengan membekukan animasi pada detik ke-7,5. `npm run lint` bersih."
+
+**23:55**
+user: "[screenshot dashboard guru kosong] kok kesannya kosong banget ya, apa bagusnya kita kasih example class ya?" → setelah ditanya, user memilih: "Setiap guru baru tidak perlu muat class contoh tapi lgsg ada kelas referensi atau template ... Tujuannya itu memberi guru gambaran"
+
+agent: "Setiap guru yang register otomatis mendapat class referensi 'Contoh: Biologi Sel Kelas XI' (private, draft, kolom baru `classes.is_example` lewat migrasi 0003). Level pertama + soalnya `approved`, sisanya `draft` agar guru melihat alur review. Class contoh tidak bisa di-publish (400) dan tidak muncul di daftar publik. Konten dipindah ke `services/example_class.py` dan dipakai bersama seeder; `python -m app.db.seed --examples` mengisi guru lama (akun Junathan dan guru seed). Dashboard guru sekarang menampilkan daftar class di atas form, dengan badge 'Contoh' dan deskripsi. Test baru: guru dapat contoh/murid tidak, contoh tidak bisa publish dan tidak publik; satu test lama diperbarui karena guru baru kini punya 1 class bawaan (bukan dilemahkan). 44 test lolos, ruff dan lint bersih."
