@@ -19,6 +19,7 @@ class ClassResponse(BaseModel):
     visibility: ClassVisibility
     status: ClassStatus
     invite_code: str | None = None
+    is_example: bool = False
 
     model_config = {"from_attributes": True}
 

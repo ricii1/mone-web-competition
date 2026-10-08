@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,6 +32,7 @@ class Class(UUIDPKMixin, TimestampMixin, Base):
     status: Mapped[ClassStatus] = mapped_column(
         Enum(ClassStatus, name="class_status"), default=ClassStatus.draft
     )
+    is_example: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class Enrollment(UUIDPKMixin, Base):

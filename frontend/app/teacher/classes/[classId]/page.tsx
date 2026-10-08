@@ -99,8 +99,18 @@ export default function TeacherClassPage() {
       <h1 className="mb-1 font-display text-2xl">{cls?.title ?? "Memuat..."}</h1>
       {cls && (
         <p className="mb-6 text-sm text-ink/60">
+          {cls.is_example && (
+            <span className="mr-2 rounded-sm bg-highlight/20 px-2 py-0.5 text-xs font-medium text-ink">
+              Contoh
+            </span>
+          )}
           {cls.visibility} · {cls.status}
           {cls.invite_code && <> · kode undangan: {cls.invite_code}</>}
+        </p>
+      )}
+      {cls?.is_example && (
+        <p className="mb-4 rounded-sm border border-highlight/40 bg-highlight/10 p-3 text-sm">
+          {cls.description}
         </p>
       )}
       {error && <p className="mb-4 text-sm text-alert">{error}</p>}
@@ -153,9 +163,11 @@ export default function TeacherClassPage() {
       </section>
 
       <div className="flex gap-3">
-        <button onClick={handlePublish} className="btn-primary">
-          Publish class
-        </button>
+        {!cls?.is_example && (
+          <button onClick={handlePublish} className="btn-primary">
+            Publish class
+          </button>
+        )}
         <Link href={`/teacher/classes/${classId}/live`} className="btn-ghost">
           Live class
         </Link>

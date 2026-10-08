@@ -18,6 +18,7 @@ export interface SchoolClass {
   visibility: ClassVisibility;
   status: ClassStatus;
   invite_code: string | null;
+  is_example: boolean;
 }
 
 export type VectorStatus = "pending" | "processing" | "ready" | "failed";

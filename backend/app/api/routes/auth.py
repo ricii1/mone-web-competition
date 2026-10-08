@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.services.example_class import create_example_class
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -21,6 +22,9 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)) -> TokenRespo
     )
     db.add(user)
     try:
+        db.flush()
+        if user.role == UserRole.teacher:
+            create_example_class(db, user)
         db.commit()
     except IntegrityError as exc:
         db.rollback()

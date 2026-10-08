@@ -46,7 +46,28 @@ export default function TeacherDashboard() {
       <h1 className="mb-1 font-display text-2xl">Dashboard Guru</h1>
       <p className="mb-8 text-ink/60">Kelola kelas, materi, dan soal dari satu tempat.</p>
 
-      <form onSubmit={handleCreate} className="card mb-10 flex flex-col gap-4">
+      <h2 className="mb-3 font-display text-lg">Class saya</h2>
+      {loading && <p className="text-sm text-ink/60">Memuat...</p>}
+      {!loading && classes.length === 0 && <p className="text-sm text-ink/60">Belum ada class.</p>}
+      <ul className="mb-10 flex flex-col gap-2">
+        {classes.map((c) => (
+          <li key={c.id}>
+            <Link href={`/teacher/classes/${c.id}`} className="card block transition-colors hover:border-ink/30">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{c.title}</span>
+                {c.is_example && (
+                  <span className="rounded-sm bg-highlight/20 px-2 py-0.5 text-xs font-medium">Contoh</span>
+                )}
+                <span className="text-xs text-ink/50">
+                  {c.visibility} · {c.status}
+                </span>
+              </span>
+              {c.description && <span className="mt-1 line-clamp-2 block text-sm text-ink/60">{c.description}</span>}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <form onSubmit={handleCreate} className="card flex flex-col gap-4">
         <h2 className="font-display text-lg">Buat class baru</h2>
         <div className="field">
           <label htmlFor="title" className="field-label">
@@ -90,21 +111,6 @@ export default function TeacherDashboard() {
         </button>
       </form>
 
-      <h2 className="mb-3 font-display text-lg">Class saya</h2>
-      {loading && <p className="text-sm text-ink/60">Memuat...</p>}
-      {!loading && classes.length === 0 && <p className="text-sm text-ink/60">Belum ada class.</p>}
-      <ul className="flex flex-col gap-2">
-        {classes.map((c) => (
-          <li key={c.id}>
-            <Link href={`/teacher/classes/${c.id}`} className="card block transition-colors hover:border-ink/30">
-              <span className="font-medium">{c.title}</span>{" "}
-              <span className="text-xs text-ink/50">
-                ({c.visibility}, {c.status})
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
     </main>
   );
 }

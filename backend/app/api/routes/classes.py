@@ -68,6 +68,11 @@ def publish_class(
 ) -> ClassResponse:
     cls = class_service.get_class_or_404(db, class_id)
     class_service.require_owner(cls, teacher)
+    if cls.is_example:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Class contoh tidak bisa dipublish. Buat class baru untuk materimu sendiri.",
+        )
     blockers = level_service.class_publish_blockers(db, class_id)
     if blockers:
         raise HTTPException(
