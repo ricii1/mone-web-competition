@@ -65,10 +65,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 function LevelNode({
   data,
-}: NodeProps<Node<{ label: string; status: string; type: string; teacher: boolean }>>) {
+}: NodeProps<Node<{ label: string; status: string; type: string; teacher: boolean; preview: boolean }>>) {
   const palette = data.teacher ? TEACHER_STATUS_STYLE : STATUS_STYLE;
   const style = palette[data.status] ?? palette.draft ?? STATUS_STYLE.locked;
-  const current = !data.teacher && data.status === "unlocked";
+  const current = !data.teacher && !data.preview && data.status === "unlocked";
   return (
     <div className="flex flex-col items-center gap-1">
       <div
@@ -111,25 +111,28 @@ export default function LevelMap({
   levels,
   progress = [],
   teacher = false,
+  preview = false,
   height,
 }: {
   classId: string;
   levels: Level[];
   progress?: Progress[];
   teacher?: boolean;
+  /** Teacher preview of the student map: every level is open and links to the preview player. */
+  preview?: boolean;
   height?: string;
 }) {
   const router = useRouter();
   const statusByLevel = useMemo(() => {
     const map = new Map(progress.map((p) => [p.level_id, p.status]));
-    return (levelId: string) => map.get(levelId) ?? "locked";
-  }, [progress]);
+    return (levelId: string) => (preview ? "unlocked" : (map.get(levelId) ?? "locked"));
+  }, [progress, preview]);
 
   const nodes: Node[] = levels.map((l, i) => ({
     id: l.id,
     type: "level",
     position: { x: [0, 150, 0, -150][i % 4], y: i * 110 },
-    data: { label: l.title, status: teacher ? l.status : statusByLevel(l.id), type: l.type, teacher },
+    data: { label: l.title, status: teacher ? l.status : statusByLevel(l.id), type: l.type, teacher, preview },
   }));
 
   const edges: Edge[] = levels
@@ -152,6 +155,8 @@ export default function LevelMap({
         onNodeClick={(_, node) => {
           if (teacher) {
             router.push(`/teacher/classes/${classId}/levels/${node.id}`);
+          } else if (preview) {
+            router.push(`/teacher/classes/${classId}/levels/${node.id}/preview`);
           } else if (statusByLevel(node.id) !== "locked") {
             router.push(`/student/classes/${classId}/levels/${node.id}`);
           }

@@ -120,3 +120,8 @@ agent: "Backend: migrasi 0005 `levels.key_points`, ringkasan AI = paragraf + 3-6
 
 **01:50**
 agent (debugging): "uvicorn `--reload` macet saat reload karena memicu migrasi file baru sementara koneksi WebSocket masih terbuka ('Waiting for background tasks to complete'), semua request time out. Diperbaiki dengan restart proses uvicorn. Agent UI juga melaporkan `.field` dipakai sebagai kelas input padahal itu kelas pembungkus; diganti ke `.input-box`. Level seed lama tidak punya `key_points` setelah migrasi 0005; di-backfill dengan skrip sekali jalan tanpa menghapus akun pengguna."
+
+**02:25**
+user: "lalu coba dari guru buatkan tombol preview"
+
+agent: "Ditambah fitur pratinjau guru: tombol 'Pratinjau' di halaman class (peta seperti yang dilihat murid, semua level terbuka) dan 'Pratinjau sebagai murid' di editor level. Halaman level murid diekstrak jadi komponen bersama `LevelPlayer` (mode `student` | `preview`); di mode pratinjau soal dinilai lokal di browser (guru memang sudah menerima `correct_answer`), tidak memanggil API submit sehingga tidak ada progres/attempt/leaderboard yang berubah, ada banner 'Pratinjau guru' dan opsi 'Sertakan soal draft'. Diverifikasi di browser: peta pratinjau, kuis, dan hasil (skor 40% dari pilihan pertama tiap soal) tampil benar. Lint dan tsc bersih."

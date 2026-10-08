@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import PageShell from "@/components/PageShell";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -145,6 +146,9 @@ export default function TeacherLevelPage() {
           >
             {level.status === "approved" ? "Batalkan approve" : "Approve level"}
           </button>
+          <Link href={`/teacher/classes/${classId}/levels/${levelId}/preview`} className="btn-ghost px-3 py-1 text-xs">
+            Pratinjau sebagai murid
+          </Link>
         </div>
         {headerError && (
           <p role="alert" className="mt-2 text-sm text-alert">

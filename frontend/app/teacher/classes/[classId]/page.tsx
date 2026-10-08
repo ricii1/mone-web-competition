@@ -169,6 +169,9 @@ export default function TeacherClassPage() {
       }
       actions={
         <>
+          <Link href={`/teacher/classes/${classId}/preview`} className="btn-ghost">
+            Pratinjau
+          </Link>
           <Link href={`/teacher/classes/${classId}/live`} className="btn-ghost">
             Live class
           </Link>
