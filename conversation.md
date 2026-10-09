@@ -167,3 +167,8 @@ agent: "`AuthHero` (dipakai login, register, dan halaman awal lewat layout bersa
 user: "oke lalu di login dan register kan ada background awan ya, bisakah dibuat awannya gerak dari kiri ke kanan, looping gitu"
 
 agent: "Awan statis di latar (tile SVG pada `body`) diganti pada halaman login, register, dan awal dengan komponen `CloudSky`: enam awan SVG berbeda ukuran, tinggi, dan kecepatan (55-110 detik per lintasan) yang bergeser dari kiri ke kanan terus-menerus (`translateX` dari -260px sampai 100cqw lebar panel, `infinite linear`), dengan delay negatif agar sejak awal tersebar di langit (efek paralaks). CSS murni, tanpa JS atau dependency. Dengan `prefers-reduced-motion` awan diam di posisi tetap. Diverifikasi: animasi `sky-drift` berjalan dan posisi awan naik 92 → 386 → 680px lalu kembali dari kiri saat putaran selesai. Catatan verifikasi: tab browser sedang tidak terlihat (`visibilityState: hidden`) sehingga posisi live tidak berubah di screenshot biasa; pengukuran dilakukan dengan menggeser `currentTime` animasi. Lint dan tsc bersih."
+
+**03:45**
+user: "itu awannya kepotong atasnya, nggak full coba cek deh"
+
+agent (debugging): "Benar, awan terpotong di bagian atas. Penyebab: `viewBox` SVG awan saya tentukan manual (`0 0 200 90`) tanpa mengukur path; bounding box sebenarnya `y = -10.4` sehingga tonjolan atas awan berada di luar viewBox dan terpotong. Diperbaiki dengan mengukur `getBBox()` di browser dan membuat `viewBox` `8 -14 176 96` (bbox + stroke + margin), lalu diverifikasi bahwa bbox + stroke berada di dalam viewBox. Posisi vertikal awan terbawah juga dinaikkan agar tidak terpotong tepi panel."
