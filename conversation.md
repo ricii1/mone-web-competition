@@ -150,3 +150,10 @@ agent: "Dibuat `README.md` (sebelumnya belum ada) berisi dua cara menjalankan: D
 user: "buatkan run-uvicorn.sh jika pakai uvicorn"
 
 agent: "Dibuat `run-uvicorn.sh` di root repo: mengaktifkan env conda (`edumap`, bisa diganti lewat `CONDA_ENV`; mencari `conda.sh` di lokasi umum bila conda belum diinisialisasi), `unset PYTHONPATH`, cek `.env`, lalu menjalankan uvicorn dengan `--reload --timeout-graceful-shutdown 2` (agar reload tidak macet oleh WebSocket); `HOST`, `PORT`, `RELOAD=0` bisa diatur lewat env. Diuji di port 8010: `/health` ok. README diperbarui dengan cara pakainya."
+
+**02:45**
+user: "apakah bisa kalau saya docker compose up -d jalan semua, docker compose down mati semua?" → "iya rapikan dan coba"
+
+agent: "Bisa, tetapi `docker-compose.yml` lama bermasalah. Saat dicek, pengguna sudah menjalankan compose dan worker mati (`Exited (1)`): `ConnectionError ... localhost:6379`."
+
+agent (debugging): "Penyebab: `.env` yang disiapkan untuk mode native berisi `REDIS_URL=redis://localhost:6379` dan `DATABASE_URL=...@localhost:5433`; `env_file: .env` memasukkannya ke container, padahal di dalam container Redis/Postgres harus dijangkau lewat nama service (`redis`, `postgres`). Port host compose juga 8001/3001 sehingga tidak cocok dengan URL di `.env`. Perbaikan: `DATABASE_URL`, `REDIS_URL`, `UPLOAD_DIR` ditimpa lewat `environment:` di compose (satu `.env` untuk dua mode), port host jadi `${API_PORT:-8000}`/`${WEB_PORT:-3000}`, backend menjalankan `alembic upgrade head` otomatis sebelum uvicorn (`--timeout-graceful-shutdown 2`), healthcheck API dan `depends_on: service_healthy` untuk worker/frontend, volume `model_cache` agar model embedding tidak diunduh ulang, serta `.dockerignore`. Diuji: `docker compose up -d --build` menyalakan 5 service sehat, login via API dan frontend 200, generate level lewat worker Docker berhasil (status done, 2 level, key points), `down` mematikan semuanya dan `up -d` lagi menyisakan data. README dan `.env.example` diperbarui."

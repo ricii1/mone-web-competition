@@ -1,3 +1,13 @@
+# One command for everything: `docker compose up -d --build` / `docker compose down`.
+# The same .env works for native (conda) and Docker mode: container-only values
+# (database/redis hosts, upload dir) are overridden below, so localhost values in
+# .env never leak into the containers.
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-edumap}:${POSTGRES_PASSWORD:-edumap}@postgres:5432/${POSTGRES_DB:-edumap}
+  REDIS_URL: redis://redis:6379/0
+  UPLOAD_DIR: /data/uploads
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -28,44 +38,58 @@ services:
   backend:
     build: ./backend
     env_file: .env
+    environment: *backend-env
     ports:
-      - "8001:8000"
+      - "${API_PORT:-8000}:8000"
     volumes:
       - ./backend:/app
-      - uploads:${UPLOAD_DIR:-/data/uploads}
+      - uploads:/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Migrate on every start so a fresh database works without extra steps.
+    # --timeout-graceful-shutdown keeps --reload from hanging on open WebSockets.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --timeout-graceful-shutdown 2"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
 
   worker:
     build: ./backend
     env_file: .env
+    environment: *backend-env
     volumes:
       - ./backend:/app
-      - uploads:${UPLOAD_DIR:-/data/uploads}
+      - uploads:/data/uploads
+      - model_cache:/root/.cache/huggingface
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
+      backend:
         condition: service_healthy
     command: arq app.worker.settings.WorkerSettings
+    restart: on-failure
 
   frontend:
     build: ./frontend
     env_file: .env
     ports:
-      - "3001:3000"
+      - "${WEB_PORT:-3000}:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     command: npm run dev
 
 volumes:
   postgres_data:
   uploads:
+  model_cache:

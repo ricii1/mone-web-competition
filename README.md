@@ -26,39 +26,34 @@ Model embedding (`intfloat/multilingual-e5-small`, sekitar 470 MB) diunduh otoma
 
 ## Cara 1: Docker Compose
 
-Menjalankan semua service (frontend, backend, worker, Postgres + pgvector, Redis) sekaligus.
+Satu perintah menjalankan semuanya: Postgres + pgvector, Redis, API, worker, dan frontend. `docker compose down` mematikan semuanya.
 
 ```bash
-cp .env.example .env
+cp .env.example .env            # sekali saja
+docker compose up -d --build    # build pertama lama: memasang PyTorch CPU dan sentence-transformers
+docker compose exec backend python -m app.db.seed   # data demo (opsional)
 ```
 
-Port di host pada `docker-compose.yml` berbeda dari port di dalam container: **API di `8001`, frontend di `3001`, Postgres di `5433`**. Sesuaikan tiga baris ini di `.env`:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8001
-NEXT_PUBLIC_WS_URL=ws://localhost:8001
-CORS_ORIGINS=http://localhost:3001
-```
-
-Lalu jalankan:
-
-```bash
-docker compose up --build
-
-# di terminal lain
-docker compose exec backend alembic upgrade head      # migrasi database
-docker compose exec backend python -m app.db.seed     # data demo (opsional)
-```
-
-Buka frontend di http://localhost:3001 dan dokumentasi API di http://localhost:8001/docs.
+- Frontend: http://localhost:3000, API: http://localhost:8000 (dokumentasi di `/docs`).
+- Migrasi database berjalan **otomatis** setiap backend start, jadi database baru langsung siap.
+- Worker menunggu API sehat dulu, jadi urutan start sudah diatur.
+- `.env` yang sama dipakai untuk Docker dan native. Nilai khusus container (host database, host Redis, folder upload) ditimpa di `docker-compose.yml`, sehingga `localhost` di `.env` tidak mengganggu.
+- Port host bisa diganti lewat `API_PORT` dan `WEB_PORT` di `.env` (default `8000` dan `3000`). Kalau diganti, samakan juga `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, dan `CORS_ORIGINS`.
+- Kode di `backend/` dan `frontend/` dipasang sebagai volume, jadi perubahan kode ikut ter-reload di API dan frontend. **Worker tidak reload otomatis**: jalankan `docker compose restart worker` setelah mengubah kode job atau prompt.
 
 Perintah berguna:
 
 ```bash
+docker compose ps                 # status semua service
 docker compose logs -f worker     # log worker (pemrosesan PDF dan generate level)
-docker compose down               # hentikan semua service
-docker compose down -v            # hentikan dan hapus data database
+docker compose restart worker     # muat ulang kode worker
+docker compose down               # hentikan semua service (data tetap tersimpan)
+docker compose down -v            # hentikan dan HAPUS data database, upload, dan cache model
 ```
+
+Model embedding (sekitar 470 MB) diunduh worker saat PDF pertama diproses dan disimpan di volume `model_cache`, jadi tidak diunduh ulang setelah `down`.
+
+> Jangan menjalankan Docker dan native (Cara 2) bersamaan. Keduanya memakai port 8000, 3000, 5433, dan 6379 yang sama, dan dua worker akan berebut antrean job.
 
 ## Cara 2: Native dengan conda (lebih ringan)
 
@@ -191,4 +186,5 @@ Test memakai database terpisah `edumap_test` yang dibuat otomatis di server Post
 | Browser menampilkan CORS error | Nilai `CORS_ORIGINS` di `.env` harus sama dengan alamat frontend (`3000` untuk cara 2, `3001` untuk cara 1). Restart API setelah mengubahnya. |
 | Muncul "Bukan pemilik class ini" | Token login milik akun lain tersimpan di browser. Keluar, lalu masuk lagi dengan akun pemilik class. |
 | `pytest` gagal mengimpor plugin aneh | Jalankan `unset PYTHONPATH` sebelum `pytest`. |
-| Ingin mengosongkan database dev | `docker compose down -v`, jalankan lagi `docker compose up -d postgres redis`, lalu `alembic upgrade head` dan seed. |
+| Ingin mengosongkan database dev | `docker compose down -v`, lalu `docker compose up -d` (Docker; migrasi otomatis) atau `docker compose up -d postgres redis` + `alembic upgrade head` (native), lalu seed. |
+| Worker Docker langsung berhenti dengan `ConnectionError ... localhost:6379` | `REDIS_URL` dari `.env` (localhost) bocor ke container. Sudah ditimpa di `docker-compose.yml`; pastikan memakai file compose terbaru dan jalankan `docker compose up -d --force-recreate`. |
