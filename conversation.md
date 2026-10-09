@@ -140,3 +140,8 @@ agent: "AGENTS.md diperbarui: pengguna = guru SD dan murid SD, alur level jadi m
 
 **01:40**
 agent (debugging): "Selama sesi, API sempat time out total setiap file `.py` berubah: `uvicorn --reload` menunggu koneksi WebSocket yang masih terbuka ('Waiting for background tasks to complete') sehingga reload tidak pernah selesai. Diperbaiki dengan menjalankan uvicorn memakai `--timeout-graceful-shutdown 2`. Worker arq tidak reload otomatis, jadi harus di-restart manual setelah perubahan kode job/prompt. Satu kesalahan proses: `pkill -f` dengan pola yang cocok dengan teks perintah sendiri membunuh shell (exit 144); dipakai pola `[a]rq`."
+
+**02:05**
+user: "di README.md tambahkan metode cara startnya gimana"
+
+agent: "Dibuat `README.md` (sebelumnya belum ada) berisi dua cara menjalankan: Docker Compose penuh (dengan catatan port host 8001/3001/5433 dan penyesuaian `.env`) dan native dengan conda (Postgres + Redis lewat Docker; langkah env, `.env` + symlink, migrasi, seed, tiga proses uvicorn/arq/next). Ditambah akun uji seed, penjelasan `LLM_MODE` mock vs Groq, perintah test/lint (`unset PYTHONPATH`), dan tabel pemecahan masalah (uvicorn reload macet, worker tidak reload, CORS, 403 token). Jalur Docker Compose penuh belum dicoba end-to-end di sesi ini; jalur conda sudah dijalankan langsung."
