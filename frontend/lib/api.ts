@@ -1,5 +1,6 @@
 import { getToken } from "./auth";
 import type {
+  ChunkOption,
   LeaderboardEntry,
   Level,
   LiveSession,
@@ -92,7 +93,11 @@ export const api = {
   generateLevels: (classId: string) =>
     request<{ status: string }>(`/api/v1/classes/${classId}/levels/generate`, { method: "POST" }),
   listLevels: (classId: string) => request<Level[]>(`/api/v1/classes/${classId}/levels`),
-  updateLevel: (levelId: string, body: Partial<Omit<Level, "sources">> & { clear_prerequisite?: boolean }) =>
+  listChunks: (classId: string) => request<ChunkOption[]>(`/api/v1/classes/${classId}/chunks`),
+  updateLevel: (
+    levelId: string,
+    body: Partial<Omit<Level, "sources">> & { clear_prerequisite?: boolean; source_chunk_ids?: string[] },
+  ) =>
     request<Level>(`/api/v1/levels/${levelId}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteLevel: (levelId: string) =>
     request<void>(`/api/v1/levels/${levelId}`, { method: "DELETE" }),

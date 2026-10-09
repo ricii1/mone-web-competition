@@ -8,7 +8,12 @@ from app.models.level import Level, LevelChunk, LevelStatus
 from app.models.material import Material, MaterialChunk, VectorStatus
 from app.models.progress import Attempt, Progress
 from app.models.question import Question, QuestionStatus
-from app.schemas.level import LevelResponse, LevelSourceResponse, LevelUpdateRequest
+from app.schemas.level import (
+    ChunkOptionResponse,
+    LevelResponse,
+    LevelSourceResponse,
+    LevelUpdateRequest,
+)
 
 LEVELS_PER_BOSS = 4
 QUESTIONS_PER_LEVEL = 5
@@ -32,6 +37,7 @@ def build_level_responses(db: Session, levels: list[Level]) -> list[LevelRespons
         for level_id, chunk in rows:
             sources[level_id].append(
                 LevelSourceResponse(
+                    chunk_id=chunk.id,
                     section_title=chunk.section_title,
                     page_start=chunk.page_start,
                     page_end=chunk.page_end,
@@ -66,6 +72,8 @@ def update_level(db: Session, level: Level, body: LevelUpdateRequest) -> Level:
         level.content = body.content or None
     if body.key_points is not None:
         level.key_points = body.key_points
+    if body.source_chunk_ids is not None:
+        _replace_sources(db, level, body.source_chunk_ids)
     if body.status is not None:
         if body.status == LevelStatus.approved and not _has_approved_question(db, level.id):
             raise HTTPException(
@@ -75,6 +83,43 @@ def update_level(db: Session, level: Level, body: LevelUpdateRequest) -> Level:
     db.commit()
     db.refresh(level)
     return level
+
+
+def _replace_sources(db: Session, level: Level, chunk_ids: list[UUID]) -> None:
+    valid = {
+        row[0]
+        for row in db.query(MaterialChunk.id)
+        .filter(MaterialChunk.class_id == level.class_id, MaterialChunk.id.in_(chunk_ids))
+        .all()
+    }
+    if len(valid) != len(chunk_ids):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Sumber harus berasal dari materi class ini",
+        )
+    db.query(LevelChunk).filter(LevelChunk.level_id == level.id).delete()
+    db.add_all(LevelChunk(level_id=level.id, chunk_id=chunk_id) for chunk_id in chunk_ids)
+    db.flush()
+
+
+def list_chunk_options(db: Session, class_id: UUID) -> list[ChunkOptionResponse]:
+    rows = (
+        db.query(MaterialChunk, Material.file_name)
+        .join(Material, Material.id == MaterialChunk.material_id)
+        .filter(MaterialChunk.class_id == class_id)
+        .order_by(Material.file_name, MaterialChunk.page_start, MaterialChunk.page_end)
+        .all()
+    )
+    return [
+        ChunkOptionResponse(
+            id=chunk.id,
+            section_title=chunk.section_title,
+            page_start=chunk.page_start,
+            page_end=chunk.page_end,
+            material_name=file_name,
+        )
+        for chunk, file_name in rows
+    ]
 
 
 def _has_approved_question(db: Session, level_id: UUID) -> bool:

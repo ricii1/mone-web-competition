@@ -144,6 +144,7 @@ def test_levels_list_includes_key_points_and_ordered_sources(client, db):
     assert resp.status_code == 200
     item = resp.json()[0]
     assert item["key_points"] == ["Satu", "Dua", "Tiga"]
+    assert all(source.pop("chunk_id") for source in item["sources"])
     assert item["sources"] == [
         {"section_title": "Bab 1", "page_start": 1, "page_end": 4},
         {"section_title": "Bab 2", "page_start": 5, "page_end": 7},
@@ -262,3 +263,74 @@ def test_student_sees_content_of_enrolled_published_class(client, db):
     resp = client.get(f"/api/v1/classes/{cls.id}/levels", headers=_auth(student))
     assert resp.status_code == 200
     assert resp.json()[0]["content"] == "### Materi\n\nIsi bacaan."
+
+
+def _chunk(db, cls, title, pages=(1, 2)) -> MaterialChunk:
+    material = Material(
+        class_id=cls.id, file_name="m.pdf", file_path="/m.pdf", vector_status=VectorStatus.ready
+    )
+    db.add(material)
+    db.flush()
+    chunk = MaterialChunk(
+        material_id=material.id,
+        class_id=cls.id,
+        section_title=title,
+        content="isi",
+        page_start=pages[0],
+        page_end=pages[1],
+        embedding=[0.0] * 384,
+    )
+    db.add(chunk)
+    db.commit()
+    return chunk
+
+
+def test_teacher_can_replace_level_sources(client, db):
+    teacher, cls, level = _setup(db)
+    first, second = _chunk(db, cls, "Bagian A"), _chunk(db, cls, "Bagian B", (3, 4))
+    db.add(LevelChunk(level_id=level.id, chunk_id=first.id))
+    db.commit()
+
+    options = client.get(f"/api/v1/classes/{cls.id}/chunks", headers=_auth(teacher))
+    assert options.status_code == 200
+    assert {o["section_title"] for o in options.json()} == {"Bagian A", "Bagian B"}
+
+    resp = client.patch(
+        f"/api/v1/levels/{level.id}",
+        json={"source_chunk_ids": [str(second.id)]},
+        headers=_auth(teacher),
+    )
+    assert resp.status_code == 200
+    assert [s["section_title"] for s in resp.json()["sources"]] == ["Bagian B"]
+
+    cleared = client.patch(
+        f"/api/v1/levels/{level.id}", json={"source_chunk_ids": []}, headers=_auth(teacher)
+    )
+    assert cleared.json()["sources"] == []
+
+
+def test_sources_must_belong_to_the_same_class(client, db):
+    teacher, _, level = _setup(db)
+    _, other_cls, _ = _setup(db)
+    foreign = _chunk(db, other_cls, "Milik kelas lain")
+
+    resp = client.patch(
+        f"/api/v1/levels/{level.id}",
+        json={"source_chunk_ids": [str(foreign.id)]},
+        headers=_auth(teacher),
+    )
+    assert resp.status_code == 400
+
+
+def test_only_owner_lists_class_chunks_and_edits_sources(client, db):
+    _, cls, level = _setup(db)
+    other = _user(db, UserRole.teacher)
+    chunk = _chunk(db, cls, "A")
+
+    assert client.get(f"/api/v1/classes/{cls.id}/chunks", headers=_auth(other)).status_code == 403
+    resp = client.patch(
+        f"/api/v1/levels/{level.id}",
+        json={"source_chunk_ids": [str(chunk.id)]},
+        headers=_auth(other),
+    )
+    assert resp.status_code == 403

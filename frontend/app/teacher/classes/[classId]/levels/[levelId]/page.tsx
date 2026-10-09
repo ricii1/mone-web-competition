@@ -9,7 +9,7 @@ import { CheckIcon, ClockIcon, EyeIcon, LightbulbIcon, MapIcon, PencilIcon, Plus
 import Markdown from "@/components/Markdown";
 import { countWords, formatSource, readMinutes } from "@/lib/levels";
 import { useClassTitle } from "@/lib/useClassTitle";
-import type { Level, Question } from "@/lib/types";
+import type { ChunkOption, Level, Question } from "@/lib/types";
 
 type Tab = "material" | "questions";
 
@@ -33,6 +33,8 @@ export default function TeacherLevelPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [summary, setSummary] = useState("");
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
+  const [sourceIds, setSourceIds] = useState<string[]>([]);
+  const [chunkOptions, setChunkOptions] = useState<ChunkOption[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -43,6 +45,7 @@ export default function TeacherLevelPage() {
     setContent(l.content ?? "");
     setSummary(l.summary ?? "");
     setKeyPoints(l.key_points ?? []);
+    setSourceIds(l.sources.map((s) => s.chunk_id));
   }, []);
 
   const loadQuestions = useCallback(async () => {
@@ -65,6 +68,10 @@ export default function TeacherLevelPage() {
   }, [classId, levelId, applyLevel]);
 
   useEffect(() => {
+    api.listChunks(classId).then(setChunkOptions).catch(() => setChunkOptions([]));
+  }, [classId]);
+
+  useEffect(() => {
     if (window.location.hash === "#soal") setTab("questions");
   }, []);
 
@@ -83,6 +90,7 @@ export default function TeacherLevelPage() {
         content,
         summary,
         key_points: keyPoints.map((p) => p.trim()).filter(Boolean),
+        source_chunk_ids: sourceIds,
       });
       applyLevel(updated);
       setSaved(true);
@@ -195,7 +203,7 @@ export default function TeacherLevelPage() {
       </div>
 
       {tab === "material" ? (
-        <section role="tabpanel" id="panel-material" aria-labelledby="tab-material" className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start">
+        <section role="tabpanel" id="panel-material" aria-labelledby="tab-material" className="flex flex-col gap-6">
           <div className="surface flex flex-col gap-6">
           <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -224,7 +232,7 @@ export default function TeacherLevelPage() {
             ) : (
               <textarea
                 id="level-content"
-                rows={16}
+                rows={22}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 aria-describedby="content-hint"
@@ -293,21 +301,47 @@ export default function TeacherLevelPage() {
 
           </div>
 
-          <div className="flex flex-col gap-6 lg:sticky lg:top-20">
           <div className="surface">
             <p className="field-label flex items-center gap-2"><ScrollIcon size={20} />Sumber</p>
-            {level.sources.length > 0 ? (
-              <ul className="list-disc pl-5 text-ink/80">
-                {level.sources.map((s, i) => (
-                  <li key={i}>{formatSource(s)}</li>
-                ))}
-              </ul>
+            <p className="mb-3 text-base text-ink/75">
+              Centang bagian materi yang dipakai untuk artikel ini. Murid tidak melihatnya, ini untuk jejak sumber.
+            </p>
+            {chunkOptions === null ? (
+              <p role="status" className="text-ink/75">Memuat bagian materi...</p>
+            ) : chunkOptions.length === 0 ? (
+              <p className="text-ink/75">Belum ada materi yang selesai diproses. Unggah PDF di halaman class dulu.</p>
             ) : (
-              <p className="text-ink/75">Belum ada sumber.</p>
+              <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
+                {chunkOptions.map((c) => {
+                  const checked = sourceIds.includes(c.id);
+                  return (
+                    <li key={c.id}>
+                      <label className="flex min-h-[48px] cursor-pointer items-start gap-3 rounded-xl px-2 py-2 hover:bg-sky-soft/50">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setSourceIds((ids) => (checked ? ids.filter((id) => id !== c.id) : [...ids, c.id]))
+                          }
+                          className="mt-1 h-5 w-5 shrink-0 accent-[#1f7fd0]"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-ink/90">{formatSource(c)}</span>
+                          <span className="block truncate text-sm text-ink/70">{c.material_name}</span>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {sourceIds.length > 12 && (
+              <p role="alert" className="mt-2 text-base text-alert">Maksimal 12 bagian sumber.</p>
             )}
           </div>
 
-          <div className="surface flex flex-wrap items-center gap-3">
+          {/* Sticky so Simpan stays reachable while scrolling a long article. */}
+          <div className="surface sticky bottom-3 z-20 flex flex-wrap items-center gap-3">
             <button onClick={saveSummary} disabled={saving || !title.trim()} className="btn-primary">
               <CheckIcon size={22} />
               {saving ? "Menyimpan..." : "Simpan"}
@@ -322,7 +356,6 @@ export default function TeacherLevelPage() {
                 {saveError}
               </span>
             )}
-          </div>
           </div>
         </section>
       ) : (
