@@ -41,13 +41,13 @@ def test_owned_classes_includes_drafts_and_excludes_others(client):
     assert sorted(titles) == sorted(["Draft Class", EXAMPLE_TITLE])
 
 
-def test_student_cannot_list_owned_classes(client):
-    student_token = _register(client, "student_own@example.com", "student")
-    resp = client.get("/api/v1/classes/mine", headers=_auth(student_token))
-    assert resp.status_code == 403
+def test_every_account_can_list_owned_classes(client):
+    token = _register(client, "student_own@example.com", "student")
+    resp = client.get("/api/v1/classes/mine", headers=_auth(token))
+    assert resp.status_code == 200
 
 
-def test_new_teacher_gets_example_class_but_student_does_not(client):
+def test_every_new_account_gets_example_class(client):
     teacher_token = _register(client, "teacher_ex@example.com", "teacher")
     student_token = _register(client, "student_ex@example.com", "student")
 
@@ -56,7 +56,10 @@ def test_new_teacher_gets_example_class_but_student_does_not(client):
     assert mine[0]["is_example"] is True
     assert mine[0]["status"] == "draft"
 
+    # the same account may switch to teaching later, so it gets the example too
     assert client.get("/api/v1/classes/enrolled", headers=_auth(student_token)).json() == []
+    mine_student = client.get("/api/v1/classes/mine", headers=_auth(student_token)).json()
+    assert [c["title"] for c in mine_student] == [EXAMPLE_TITLE]
 
 
 def test_example_class_cannot_be_published_and_is_not_public(client):

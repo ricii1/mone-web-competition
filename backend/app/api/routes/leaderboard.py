@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.class_ import ClassStatus
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.schemas.leaderboard import LeaderboardEntryResponse
 from app.services import class_service, leaderboard_service
 
@@ -24,7 +24,7 @@ async def get_leaderboard(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Class belum dipublikasikan"
             )
-        if user.role == UserRole.student and not class_service.is_enrolled(db, user.id, class_id):
+        if not class_service.is_enrolled(db, user.id, class_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Belum join class ini"
             )

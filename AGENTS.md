@@ -21,6 +21,8 @@ EduMap adalah platform web pembelajaran untuk lomba *"Innovating Education Throu
 - Tampilan guru tetap rapi dan efisien, tetapi memakai bahasa visual yang sama agar konsisten.
 - Konten contoh (class contoh, seed) memakai topik tingkat SD, bukan SMP/SMA.
 
+**Satu akun, dua peran (seperti Kahoot).** Email yang sama bisa membuat class (mode Guru) dan mengikuti class orang lain (mode Murid). Tidak ada akun "khusus guru" atau "khusus murid"; pengguna berpindah mode lewat tombol di header. `users.role` hanya menentukan halaman awal (default saat daftar/pilihan saat masuk), bukan hak akses.
+
 Prinsip produk yang tidak boleh dilanggar:
 
 1. **Driven by guru dan kurikulum.** Semua konten AI (ringkasan, soal, jawaban tutor) harus berasal dari materi yang diunggah guru melalui retrieval. AI tidak boleh mengarang dari pengetahuan umum. Jika konteks tidak cukup, AI harus bilang tidak tahu.
@@ -142,7 +144,7 @@ Mengikuti ERD yang disepakati. Tambahan kolom boleh, tetapi perubahan relasi har
 
 | Tabel | Kolom penting |
 |---|---|
-| `users` | `id`, `name`, `email` (unik), `password_hash`, `role` (`teacher` \| `student`) |
+| `users` | `id`, `name`, `email` (unik), `password_hash`, `role` (`teacher` \| `student`; hanya halaman awal default, bukan pembatas akses, lihat bagian 11) |
 | `classes` | `id`, `teacher_id`, `title`, `description`, `visibility` (`public` \| `private`), `invite_code` (hanya private), `status` (`draft` \| `published`) |
 | `materials` | `id`, `class_id`, `file_name`, `file_path`, `vector_status` (`pending` \| `processing` \| `ready` \| `failed`), `error_message` |
 | `material_chunks` | `id`, `material_id`, `class_id`, `section_title`, `content`, `page_start`, `page_end`, `embedding vector(384)` |
@@ -253,7 +255,8 @@ Sesi kuis serentak ala Kahoot yang dipimpin guru.
 ## 11. Auth dan otorisasi
 
 - JWT dikirim sebagai header `Authorization: Bearer <token>`. Password di-hash, tidak pernah dikembalikan di respons.
-- Cek role di backend lewat dependency FastAPI (`require_teacher`, `require_student`), jangan hanya menyembunyikan tombol di frontend.
+- Satu akun boleh bertindak sebagai guru dan murid. Hak akses ditentukan **per resource di backend**, bukan oleh `users.role`: aksi guru (ubah class, upload, review, live host) hanya untuk pemilik class (`classes.teacher_id`); aksi murid (lihat level published, kuis, leaderboard, ikut live) hanya untuk yang ter-enroll. Dependency `require_teacher`/`require_student` hanya memastikan pengguna sudah masuk; pengecekan kepemilikan/enrollment tetap wajib di service/route, jangan hanya menyembunyikan tombol di frontend.
+- Setiap akun baru mendapat class contoh (karena bisa jadi guru kapan saja).
 - Guru hanya bisa mengubah class miliknya sendiri.
 - Class `private` hanya bisa di-join dengan `invite_code` yang benar; kode dibuat acak dan cukup panjang.
 - Murid hanya bisa melihat level/soal dari class yang sudah ia join dan yang berstatus `published`.

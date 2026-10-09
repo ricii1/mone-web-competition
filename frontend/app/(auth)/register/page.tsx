@@ -40,7 +40,8 @@ export default function RegisterPage() {
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <fieldset className="field">
-          <legend className="field-label mb-1">Kamu siapa?</legend>
+          <legend className="field-label mb-1">Mau mulai sebagai apa?</legend>
+          <p className="mb-2 text-base text-ink/75">Satu akun bisa jadi guru dan murid. Kamu bisa ganti kapan saja.</p>
           <RoleChooser value={role} onChange={setRole} />
         </fieldset>
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, require_teacher
 from app.db.session import get_db
 from app.models.material import Material
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.schemas.material import MaterialResponse
 from app.services import class_service, material_service
 from app.worker.queue import get_arq_pool
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/v1/classes/{class_id}/materials", tags=["materia
 def _require_access(db: Session, class_id: UUID, user: User):
     cls = class_service.get_class_or_404(db, class_id)
     is_owner = cls.teacher_id == user.id
-    is_enrolled = user.role == UserRole.student and class_service.is_enrolled(db, user.id, class_id)
+    is_enrolled = class_service.is_enrolled(db, user.id, class_id)
     if not (is_owner or is_enrolled):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Tidak punya akses ke class ini"

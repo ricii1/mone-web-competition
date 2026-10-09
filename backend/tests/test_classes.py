@@ -37,11 +37,27 @@ def test_other_teacher_cannot_edit_class(client):
     assert resp.status_code == 403
 
 
-def test_student_cannot_create_class(client):
-    token = _register(client, "student1@example.com", "student")
-    resp = client.post(
-        "/api/v1/classes", json={"title": "Bahasa", "visibility": "public"}, headers=_auth(token)
+def test_one_account_can_teach_and_learn(client):
+    """Like Kahoot: same account creates a class and joins another as a student."""
+    owner = _register(client, "owner_dual@example.com", "teacher")
+    dual = _register(client, "dual@example.com", "student")  # default role is only a default
+
+    created = client.post(
+        "/api/v1/classes", json={"title": "Bahasa", "visibility": "public"}, headers=_auth(dual)
     )
+    assert created.status_code == 201
+
+    other = client.post(
+        "/api/v1/classes", json={"title": "IPA", "visibility": "public"}, headers=_auth(owner)
+    ).json()["id"]
+    client.post(f"/api/v1/classes/{other}/publish", headers=_auth(owner))
+
+    assert (
+        client.post(f"/api/v1/classes/{other}/join", json={}, headers=_auth(dual)).status_code
+        == 204
+    )
+    # joining as a student does not grant ownership
+    resp = client.post(f"/api/v1/classes/{other}/publish", headers=_auth(dual))
     assert resp.status_code == 403
 
 

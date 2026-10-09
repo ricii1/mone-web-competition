@@ -120,9 +120,9 @@ def seed(db: Session) -> bool:
 
 
 def backfill_examples(db: Session) -> int:
-    """Give the example class to every existing teacher that lacks one."""
+    """Give the example class to every existing user that lacks one."""
     count = 0
-    for teacher in db.query(User).filter(User.role == UserRole.teacher).all():
+    for teacher in db.query(User).all():
         if not has_example_class(db, teacher.id):
             create_example_class(db, teacher)
             count += 1

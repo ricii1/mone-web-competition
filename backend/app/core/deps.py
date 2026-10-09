@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
 from app.db.session import get_db
-from app.models.user import User, UserRole
+from app.models.user import User
 
 _bearer = HTTPBearer()
 
@@ -32,13 +32,12 @@ def get_current_user(
     return user
 
 
+# One account can both teach and learn (like Kahoot). `User.role` is only the
+# default dashboard; access is decided per resource: class ownership for
+# teacher actions, enrollment for student actions.
 def require_teacher(user: User = Depends(get_current_user)) -> User:
-    if user.role != UserRole.teacher:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hanya untuk guru")
     return user
 
 
 def require_student(user: User = Depends(get_current_user)) -> User:
-    if user.role != UserRole.student:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hanya untuk murid")
     return user

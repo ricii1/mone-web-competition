@@ -8,7 +8,7 @@ from app.core.security import decode_access_token
 from app.db.session import SessionLocal
 from app.models.live_session import LiveSession
 from app.models.material import Material
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.realtime.channels import class_channel, live_session_channel, material_channel
 from app.realtime.pubsub import subscribe
 from app.services import class_service
@@ -49,9 +49,7 @@ async def material_progress_ws(
 
         cls = class_service.get_class_or_404(db, material.class_id)
         is_owner = cls.teacher_id == user.id
-        is_enrolled = user.role == UserRole.student and class_service.is_enrolled(
-            db, user.id, cls.id
-        )
+        is_enrolled = class_service.is_enrolled(db, user.id, cls.id)
         if not (is_owner or is_enrolled):
             await websocket.close(code=4403)
             return
@@ -73,9 +71,7 @@ async def class_events_ws(websocket: WebSocket, class_id: UUID, token: str | Non
 
         cls = class_service.get_class_or_404(db, class_id)
         is_owner = cls.teacher_id == user.id
-        is_enrolled = user.role == UserRole.student and class_service.is_enrolled(
-            db, user.id, class_id
-        )
+        is_enrolled = class_service.is_enrolled(db, user.id, class_id)
         if not (is_owner or is_enrolled):
             await websocket.close(code=4403)
             return
@@ -97,9 +93,7 @@ async def live_session_ws(websocket: WebSocket, session_id: UUID, token: str | N
             return
 
         is_host = session.host_id == user.id
-        is_participant = user.role == UserRole.student and class_service.is_enrolled(
-            db, user.id, session.class_id
-        )
+        is_participant = class_service.is_enrolled(db, user.id, session.class_id)
         if not (is_host or is_participant):
             await websocket.close(code=4403)
             return

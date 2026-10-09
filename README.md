@@ -147,8 +147,9 @@ CONDA_ENV=nama-lain ./run-uvicorn.sh
 | Murid | `murid1@edumap.id` sampai `murid4@edumap.id` |
 
 - Class publik **Biologi Sel Kelas XI** dengan progres dan leaderboard contoh (murid1 sudah menyelesaikan beberapa level, murid4 masih baru).
-- Setiap guru yang mendaftar otomatis mendapat class referensi **"Contoh: IPA Kelas 4 - Siklus Air"** sebagai gambaran hasil akhir (materi, rangkuman, poin penting, soal). Class ini tidak bisa dipublish.
-- Untuk guru yang sudah ada sebelum fitur class contoh: `python -m app.db.seed --examples`.
+- Satu akun bisa jadi guru dan murid (seperti Kahoot): pakai tombol **Ganti ke Guru/Murid** di header. Pilihan peran saat daftar/masuk hanya menentukan halaman awal.
+- Setiap akun yang mendaftar otomatis mendapat class referensi **"Contoh: IPA Kelas 4 - Siklus Air"** sebagai gambaran hasil akhir (materi, rangkuman, poin penting, soal). Class ini tidak bisa dipublish.
+- Untuk akun yang sudah ada sebelum fitur class contoh: `python -m app.db.seed --examples`.
 
 Alur uji cepat: masuk sebagai guru, buka class, unggah PDF, tunggu status `ready`, tekan **Generate level**, review materi dan soal, **Approve**, lalu **Publish**. Masuk sebagai murid, join class, dan mainkan level dari peta.
 

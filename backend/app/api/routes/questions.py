@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, require_student, require_teacher
 from app.db.session import get_db
 from app.models.class_ import ClassStatus
-from app.models.user import User, UserRole
+from app.models.user import User
 from app.schemas.question import (
     QuestionCreateRequest,
     QuestionResponse,
@@ -36,7 +36,7 @@ def list_questions(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Class belum dipublikasikan"
         )
-    if user.role == UserRole.student and not class_service.is_enrolled(db, user.id, cls.id):
+    if not class_service.is_enrolled(db, user.id, cls.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Belum join class ini")
 
     questions = question_service.list_questions_for_level(db, level_id, approved_only=True)
