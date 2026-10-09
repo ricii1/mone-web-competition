@@ -1,13 +1,15 @@
 import Link from "next/link";
 import AuthHero from "@/components/AuthHero";
+import CloudSky from "@/components/CloudSky";
 import { PlayIcon, UsersIcon } from "@/components/icons";
 import Mascot from "@/components/Mascot";
 
 export default function HomePage() {
   return (
-    <main className="kid grid min-h-screen md:grid-cols-2">
-      <div className="flex flex-col justify-center px-5 py-10 sm:px-12 md:px-16">
-        <div className="mx-auto w-full max-w-md">
+    <main className="kid auth-bg grid min-h-screen md:grid-cols-2">
+      <div className="relative flex flex-col justify-center overflow-hidden px-5 py-10 sm:px-12 md:px-16">
+        <CloudSky />
+        <div className="relative mx-auto w-full max-w-md">
           <Mascot mood="happy" size={110} className="bob mb-2 md:hidden" />
           <h1 className="mb-2 text-5xl font-extrabold">EduMap</h1>
           <p className="mb-8 text-xl text-ink/80">Belajar jadi seru! Ikuti peta level dari gurumu dan kumpulkan bintang.</p>
