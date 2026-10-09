@@ -183,7 +183,7 @@ Test memakai database terpisah `edumap_test` yang dibuat otomatis di server Post
 | Generate level tidak jalan atau memakai kode lama | Worker belum dijalankan atau belum di-restart setelah perubahan kode. |
 | Status materi tetap `pending` | Worker tidak berjalan, atau Redis belum menyala. Cek `docker compose ps` dan log worker. |
 | Upload PDF pertama lama | Worker sedang mengunduh model embedding sekitar 470 MB. Tunggu sampai selesai. |
-| Browser menampilkan CORS error | Nilai `CORS_ORIGINS` di `.env` harus sama dengan alamat frontend (`3000` untuk cara 2, `3001` untuk cara 1). Restart API setelah mengubahnya. |
+| Browser menampilkan CORS error | `localhost` dan `127.0.0.1` (port berapa pun) otomatis diizinkan. Kalau membuka lewat IP jaringan (mis. `192.168.x.x`) atau domain lain, tambahkan alamat itu ke `CORS_ORIGINS` di `.env` (pisahkan dengan koma), samakan `NEXT_PUBLIC_API_URL`, lalu restart API. |
 | Muncul "Bukan pemilik class ini" | Token login milik akun lain tersimpan di browser. Keluar, lalu masuk lagi dengan akun pemilik class. |
 | `pytest` gagal mengimpor plugin aneh | Jalankan `unset PYTHONPATH` sebelum `pytest`. |
 | Ingin mengosongkan database dev | `docker compose down -v`, lalu `docker compose up -d` (Docker; migrasi otomatis) atau `docker compose up -d postgres redis` + `alembic upgrade head` (native), lalu seed. |

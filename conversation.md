@@ -172,3 +172,8 @@ agent: "Awan statis di latar (tile SVG pada `body`) diganti pada halaman login, 
 user: "itu awannya kepotong atasnya, nggak full coba cek deh"
 
 agent (debugging): "Benar, awan terpotong di bagian atas. Penyebab: `viewBox` SVG awan saya tentukan manual (`0 0 200 90`) tanpa mengukur path; bounding box sebenarnya `y = -10.4` sehingga tonjolan atas awan berada di luar viewBox dan terpotong. Diperbaiki dengan mengukur `getBBox()` di browser dan membuat `viewBox` `8 -14 176 96` (bbox + stroke + margin), lalu diverifikasi bahwa bbox + stroke berada di dalam viewBox. Posisi vertikal awan terbawah juga dinaikkan agar tidak terpotong tepi panel."
+
+**09:10**
+user: "saya coba daftar kena cors error"
+
+agent (debugging): "Backend hanya mengizinkan origin persis dari `CORS_ORIGINS` (`http://localhost:3000`). Preflight dari `http://localhost:3000` lolos (200), tetapi dari `http://127.0.0.1:3000` ditolak (400) karena browser menganggap `127.0.0.1` origin berbeda dari `localhost`; request daftar lalu gagal dengan CORS error. Perbaikan: `CORSMiddleware` ditambah `allow_origin_regex` untuk `localhost` dan `127.0.0.1` di port mana pun. Origin lain (IP jaringan, domain) tetap harus ditambahkan ke `CORS_ORIGINS`; README diperbarui. Diverifikasi dengan preflight curl: `127.0.0.1:3000` 200, IP LAN tetap 400."

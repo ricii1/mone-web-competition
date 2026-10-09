@@ -19,6 +19,8 @@ app = FastAPI(title="EduMap API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
+    # loopback on any port, so localhost and 127.0.0.1 both work in dev
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_methods=["*"],
     allow_headers=["*"],
 )
