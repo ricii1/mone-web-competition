@@ -130,6 +130,16 @@ npm run dev
 
 Buka http://localhost:3000. Dokumentasi API ada di http://localhost:8000/docs.
 
+Untuk API tersedia skrip pintasan di root repo yang mengaktifkan env conda, mengosongkan `PYTHONPATH`, lalu menjalankan uvicorn dengan opsi yang benar:
+
+```bash
+./run-uvicorn.sh                  # reload aktif di 127.0.0.1:8000
+PORT=8010 ./run-uvicorn.sh        # ganti port
+HOST=0.0.0.0 ./run-uvicorn.sh     # bisa diakses dari perangkat lain di jaringan
+RELOAD=0 ./run-uvicorn.sh         # tanpa auto-reload
+CONDA_ENV=nama-lain ./run-uvicorn.sh
+```
+
 > Worker **tidak** me-reload otomatis. Setelah mengubah kode job, prompt, atau skema di `backend/app/rag` atau `backend/app/worker`, hentikan worker (Ctrl+C) dan jalankan lagi.
 
 ## Data demo dan akun uji

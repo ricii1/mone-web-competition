@@ -145,3 +145,8 @@ agent (debugging): "Selama sesi, API sempat time out total setiap file `.py` ber
 user: "di README.md tambahkan metode cara startnya gimana"
 
 agent: "Dibuat `README.md` (sebelumnya belum ada) berisi dua cara menjalankan: Docker Compose penuh (dengan catatan port host 8001/3001/5433 dan penyesuaian `.env`) dan native dengan conda (Postgres + Redis lewat Docker; langkah env, `.env` + symlink, migrasi, seed, tiga proses uvicorn/arq/next). Ditambah akun uji seed, penjelasan `LLM_MODE` mock vs Groq, perintah test/lint (`unset PYTHONPATH`), dan tabel pemecahan masalah (uvicorn reload macet, worker tidak reload, CORS, 403 token). Jalur Docker Compose penuh belum dicoba end-to-end di sesi ini; jalur conda sudah dijalankan langsung."
+
+**02:20**
+user: "buatkan run-uvicorn.sh jika pakai uvicorn"
+
+agent: "Dibuat `run-uvicorn.sh` di root repo: mengaktifkan env conda (`edumap`, bisa diganti lewat `CONDA_ENV`; mencari `conda.sh` di lokasi umum bila conda belum diinisialisasi), `unset PYTHONPATH`, cek `.env`, lalu menjalankan uvicorn dengan `--reload --timeout-graceful-shutdown 2` (agar reload tidak macet oleh WebSocket); `HOST`, `PORT`, `RELOAD=0` bisa diatur lewat env. Diuji di port 8010: `/health` ok. README diperbarui dengan cara pakainya."
