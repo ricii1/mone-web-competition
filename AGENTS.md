@@ -280,7 +280,7 @@ Backend:
 Frontend:
 
 - TypeScript strict, hindari `any`.
-- Halaman murid (map dan level) utamakan ringan: Server Components bila memungkinkan, tanpa animasi berat, gambar dioptimasi, dan pastikan tampil baik di lebar 360px. React Flow hanya dimuat di halaman map (dynamic import).
+- Halaman murid (map dan level) utamakan ringan: Server Components bila memungkinkan, tanpa animasi berat (awan latar `CloudSky variant="page"` boleh: hanya `transform`, maksimal 4 awan, 2 di HP, mati saat `prefers-reduced-motion`), gambar dioptimasi, dan pastikan tampil baik di lebar 360px. React Flow hanya dimuat di halaman map (dynamic import).
 - Semua panggilan API lewat satu client di `frontend/lib/api.ts`.
 - Tampilkan state loading/empty/error, termasuk status pemrosesan PDF untuk guru.
 

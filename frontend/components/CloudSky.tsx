@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
-// Decorative drifting clouds for the auth pages (CSS only, see ".sky-*" in globals.css).
+// Decorative drifting clouds (CSS only, see ".sky-*" in globals.css).
+// variant="auth": full sky inside a panel. variant="page": fixed behind app pages, only 4 faint
+// clouds (2 on phones), transform-only animation so it stays on the compositor and costs no layout.
 // Tops are kept low enough that every cloud fits fully inside the panel vertically.
 // Each cloud has a size, height, speed and a negative delay so they start spread across the sky.
 const CLOUDS = [
@@ -20,7 +22,13 @@ const CLOUD_H = 96;
 
 function Cloud({ width }: { width: number }) {
   return (
-    <svg width={width} height={width * (CLOUD_H / CLOUD_W)} viewBox={`${CLOUD_X} ${CLOUD_Y} ${CLOUD_W} ${CLOUD_H}`} aria-hidden="true" focusable="false">
+    <svg
+      width={width}
+      height={width * (CLOUD_H / CLOUD_W)}
+      viewBox={`${CLOUD_X} ${CLOUD_Y} ${CLOUD_W} ${CLOUD_H}`}
+      aria-hidden="true"
+      focusable="false"
+    >
       <path
         d="M40 78a30 30 0 0 1-4-59 40 40 0 0 1 74-8 34 34 0 0 1 56 20 26 26 0 0 1-6 47z"
         fill="#fff"
@@ -32,13 +40,26 @@ function Cloud({ width }: { width: number }) {
   );
 }
 
-export default function CloudSky() {
+const PAGE_CLOUDS = [CLOUDS[0], CLOUDS[2], CLOUDS[4], CLOUDS[5]];
+
+export default function CloudSky({
+  variant = "auth",
+}: {
+  variant?: "auth" | "page";
+}) {
+  const isPage = variant === "page";
+  const clouds = isPage ? PAGE_CLOUDS : CLOUDS;
   return (
-    <div aria-hidden="true" className="sky pointer-events-none absolute inset-0 overflow-hidden">
-      {CLOUDS.map((c, i) => (
+    <div
+      aria-hidden="true"
+      className={`sky pointer-events-none overflow-hidden ${
+        isPage ? "sky-page fixed inset-0 -z-10 opacity-90" : "absolute inset-0"
+      }`}
+    >
+      {clouds.map((c, i) => (
         <div
           key={i}
-          className="sky-cloud absolute left-0"
+          className={`sky-cloud absolute left-0 ${isPage && i >= 2 ? "max-sm:hidden" : ""}`}
           style={
             {
               top: `${c.top}%`,
