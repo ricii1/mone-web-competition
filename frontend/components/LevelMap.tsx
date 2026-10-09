@@ -113,31 +113,35 @@ function LevelNode({ data }: NodeProps<Node<LevelNodeData>>) {
 }
 
 // Frame the whole map in teacher mode, but zoom near the student's current level otherwise.
-function InitialView({ count, focusIds }: { count: number; focusIds: string[] }) {
+function useDefaultView(focusIds: string[]) {
   const { fitView } = useReactFlow();
+  return (duration: number) => {
+    if (focusIds.length > 0) {
+      fitView({ nodes: focusIds.map((id) => ({ id })), duration, maxZoom: 1, minZoom: 0.8, padding: 0.3 });
+    } else {
+      fitView({ duration, maxZoom: 1, padding: 0.2 });
+    }
+  };
+}
+
+function InitialView({ count, focusIds }: { count: number; focusIds: string[] }) {
+  const goDefault = useDefaultView(focusIds);
   const key = focusIds.join(",");
   useEffect(() => {
-    if (focusIds.length > 0) {
-      fitView({ nodes: focusIds.map((id) => ({ id })), duration: 0, maxZoom: 1, minZoom: 0.8, padding: 0.3 });
-    } else {
-      fitView({ duration: 0, maxZoom: 1, padding: 0.2 });
-    }
+    goDefault(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count, key, fitView]);
+  }, [count, key]);
   return null;
 }
 
-function FocusCurrent({ nodeId }: { nodeId: string }) {
-  const { fitView } = useReactFlow();
+// Like the "my location" button on a map: jumps back to the default view when the map is lost.
+function ResetViewButton({ focusIds }: { focusIds: string[] }) {
+  const goDefault = useDefaultView(focusIds);
   return (
-    <Panel position="top-right">
-      <button
-        type="button"
-        onClick={() => fitView({ nodes: [{ id: nodeId }], duration: 300, maxZoom: 1, padding: 1.2 })}
-        className="btn-ghost"
-      >
+    <Panel position="bottom-left">
+      <button type="button" onClick={() => goDefault(300)} className="btn-ghost" aria-label="Kembali ke tampilan awal">
         <TargetIcon size={20} />
-        Posisi saya
+        Tampilan awal
       </button>
     </Panel>
   );
@@ -193,7 +197,6 @@ export default function LevelMap({
   }));
 
   const currentIndex = !teacher && !preview ? levels.findIndex((l) => statusOf(l.id) === "unlocked") : -1;
-  const currentId = currentIndex >= 0 ? levels[currentIndex].id : undefined;
   // Zoom near the current level (or the last one when all are done, or the start in preview).
   const focusIndex = teacher ? -1 : currentIndex >= 0 ? currentIndex : preview ? 1 : levels.length - 2;
   const focusIds =
@@ -239,7 +242,7 @@ export default function LevelMap({
       >
         <Background color="#E6DCC0" gap={26} size={2} />
         <InitialView count={levels.length + (narrow ? 1000 : 0)} focusIds={focusIds} />
-        {currentId && <FocusCurrent nodeId={currentId} />}
+        <ResetViewButton focusIds={focusIds} />
       </ReactFlow>
     </div>
   );

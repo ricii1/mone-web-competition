@@ -197,3 +197,8 @@ agent (debugging): "Awan layer halaman awalnya tidak terlihat sama sekali. Penye
 user: "di tampilan murid memang blum ada awannya kah?"
 
 agent (debugging): "Awan sebenarnya sudah ada, tetapi hampir tidak terlihat: warna putih di atas latar krem (kontras rendah), sebagian besar berada di balik header dan banner sapaan, dan tinggal 4 awan. Perbaikan untuk `CloudSky variant=\"page\"`: awan diberi isi biru muda (`#E6F3FF`) dan garis tepi biru (`#A9D2F2`), opasitas penuh, posisi vertikal disebar ke seluruh layar (22/48/68/84%) di luar area header, dan ukuran lebih besar. Diverifikasi lewat screenshot Chrome headless: awan terlihat di belakang kartu kelas tanpa mengganggu teks."
+
+**10:45**
+user: "nah terus di peta level itu entah kenapa kadang saya kepencet apa gitu lalu hilang smeua peta levelnya, apakah bisa ditambahkan semacam tombol 'reset' yang lompat ke default viewnya di kiri bawah peta level, mirip seperti tombol cari saya di google map"
+
+agent: "Di `LevelMap` ditambahkan tombol 'Tampilan awal' (ikon target) di pojok kiri bawah peta, untuk murid, guru, dan preview. Tombol memanggil logika tampilan awal yang sama dengan saat peta dimuat (murid: zoom ke level sekarang; guru: seluruh peta), dengan animasi 300 ms. Logika itu dipindah ke hook `useDefaultView` agar tampilan awal dan tombol tidak bisa berbeda. Tombol 'Posisi saya' di kanan atas dihapus karena fungsinya sudah tercakup (tampilan awal murid memang berpusat di level sekarang). Diverifikasi di Chrome headless: peta digeser jauh (translate 474,-150 → 974,200), klik tombol mengembalikan persis ke 474,-150. Lint dan tsc bersih."
