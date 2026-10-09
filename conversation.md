@@ -192,3 +192,8 @@ agent: "Aman jika dibatasi: animasi hanya `transform: translateX` (dijalankan co
 user: (debugging, tidak ada prompt baru)
 
 agent (debugging): "Awan layer halaman awalnya tidak terlihat sama sekali. Penyebab: `html` sudah punya `background-color`, sehingga background `body` tidak dipropagasi ke canvas melainkan dilukis di kotak `body`; elemen `fixed` ber-`z-index: -10` dilukis di bawah background `body` itu. Perbaikan: pindahkan background (warna + titik matahari) ke `html` dan biarkan `body` transparan, sehingga awan berada di atas canvas tetapi di bawah konten. Diverifikasi lewat screenshot."
+
+**10:25**
+user: "di tampilan murid memang blum ada awannya kah?"
+
+agent (debugging): "Awan sebenarnya sudah ada, tetapi hampir tidak terlihat: warna putih di atas latar krem (kontras rendah), sebagian besar berada di balik header dan banner sapaan, dan tinggal 4 awan. Perbaikan untuk `CloudSky variant=\"page\"`: awan diberi isi biru muda (`#E6F3FF`) dan garis tepi biru (`#A9D2F2`), opasitas penuh, posisi vertikal disebar ke seluruh layar (22/48/68/84%) di luar area header, dan ukuran lebih besar. Diverifikasi lewat screenshot Chrome headless: awan terlihat di belakang kartu kelas tanpa mengganggu teks."

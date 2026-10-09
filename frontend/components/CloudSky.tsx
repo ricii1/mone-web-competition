@@ -20,7 +20,7 @@ const CLOUD_Y = -14;
 const CLOUD_W = 176;
 const CLOUD_H = 96;
 
-function Cloud({ width }: { width: number }) {
+function Cloud({ width, page }: { width: number; page: boolean }) {
   return (
     <svg
       width={width}
@@ -31,8 +31,8 @@ function Cloud({ width }: { width: number }) {
     >
       <path
         d="M40 78a30 30 0 0 1-4-59 40 40 0 0 1 74-8 34 34 0 0 1 56 20 26 26 0 0 1-6 47z"
-        fill="#fff"
-        stroke="#CFE6F8"
+        fill={page ? "#E6F3FF" : "#fff"}
+        stroke={page ? "#A9D2F2" : "#CFE6F8"}
         strokeWidth="3"
         strokeLinejoin="round"
       />
@@ -40,7 +40,13 @@ function Cloud({ width }: { width: number }) {
   );
 }
 
-const PAGE_CLOUDS = [CLOUDS[0], CLOUDS[2], CLOUDS[4], CLOUDS[5]];
+// Spread over the whole viewport (the header and hero hide the top), big enough to notice.
+const PAGE_CLOUDS = [
+  { top: 22, w: 190, dur: 80, delay: -25, rest: 20, o: 0.9 },
+  { top: 48, w: 150, dur: 60, delay: -40, rest: 55, o: 0.9 },
+  { top: 68, w: 220, dur: 100, delay: -10, rest: 30, o: 0.85 },
+  { top: 84, w: 170, dur: 70, delay: -55, rest: 70, o: 0.9 },
+] as const;
 
 export default function CloudSky({
   variant = "auth",
@@ -53,7 +59,7 @@ export default function CloudSky({
     <div
       aria-hidden="true"
       className={`sky pointer-events-none overflow-hidden ${
-        isPage ? "sky-page fixed inset-0 -z-10 opacity-90" : "absolute inset-0"
+        isPage ? "sky-page fixed inset-0 -z-10 opacity-100" : "absolute inset-0"
       }`}
     >
       {clouds.map((c, i) => (
@@ -70,7 +76,7 @@ export default function CloudSky({
             } as CSSProperties
           }
         >
-          <Cloud width={c.w} />
+          <Cloud width={c.w} page={isPage} />
         </div>
       ))}
     </div>
