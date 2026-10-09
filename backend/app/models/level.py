@@ -29,6 +29,8 @@ class Level(UUIDPKMixin, TimestampMixin, Base):
     type: Mapped[LevelType] = mapped_column(Enum(LevelType, name="level_type"))
     order_index: Mapped[int] = mapped_column(Integer)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Free text the teacher writes (e.g. book title and pages); the AI trace lives in level_chunks.
+    source_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     key_points: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
     status: Mapped[LevelStatus] = mapped_column(

@@ -39,16 +39,9 @@ export type LevelType = "lesson_quiz" | "boss";
 export type LevelStatus = "draft" | "approved";
 
 export interface LevelSource {
-  chunk_id: string;
   section_title: string | null;
   page_start: number;
   page_end: number;
-}
-
-/** A material section a teacher can pick as a level source. */
-export interface ChunkOption extends Omit<LevelSource, "chunk_id"> {
-  id: string;
-  material_name: string;
 }
 
 export interface Level {
@@ -61,6 +54,9 @@ export interface Level {
   summary: string | null;
   content: string | null;
   key_points: string[];
+  /** Free text written by the teacher (e.g. book title and pages). */
+  source_note: string | null;
+  /** Material sections the AI used; read-only. */
   sources: LevelSource[];
   status: LevelStatus;
 }

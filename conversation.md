@@ -212,3 +212,8 @@ agent: "Halaman level guru (tab Materi) tidak lagi dua kolom: artikel, rangkuman
 user: "logo burung ini jadikan juga sebagai icon di tab"
 
 agent: "Ditambahkan `frontend/app/icon.svg` (konvensi file icon Next.js, otomatis dipasang sebagai `<link rel=\"icon\">`): maskot burung hantu 'Bu Hoo' versi statis tanpa pipi, dengan viewBox dipas ke badan agar memenuhi ikon. Diperiksa: halaman memuat `<link rel=\"icon\" href=\"/icon.svg?...\">`, file dilayani 200 `image/svg+xml`, dan render pada 128/32/16 px tetap terbaca. Jika tab masih menampilkan ikon lama, muat ulang keras (Ctrl+Shift+R) karena browser menyimpan favicon di cache."
+
+**12:00**
+user: "eh edit sumbernya kok checklist? Kalau nanti implementasi pdf gimana? apa ga lebih baik edit sumbernya lgsg teks aja ya inputnya?"
+
+agent: "Setuju: checklist tidak skala (PDF asli menghasilkan puluhan sampai ratusan chunk dan guru tidak kenal 'chunk'). Jejak chunk dari AI (`level_chunks`) harus tetap dibuat pipeline karena menjadi dasar retrieval dan prinsip 'konten AI berasal dari materi guru', jadi tidak boleh diubah-ubah manual. Perubahan: kolom baru `levels.source_note` (migrasi 0007, teks bebas maks 1000 karakter) yang diisi guru, mis. 'Buku IPA Kelas 4, bab Siklus Air, hal. 12-15'; PATCH menerima `source_note` (kosong = dihapus). Endpoint daftar chunk dan `source_chunk_ids` yang saya buat sebelumnya dihapus karena tidak lagi dipakai. UI: kotak teks Sumber, dan bagian PDF yang dipakai AI tampil read-only dalam lipatan 'Bagian PDF yang dipakai AI (n)'. Dua test baru (edit/kosongkan/trim, terlalu panjang dan guru lain ditolak); 86 test lulus, ruff/eslint/tsc bersih; migrasi sudah dijalankan di Docker."

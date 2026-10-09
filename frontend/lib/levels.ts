@@ -1,6 +1,6 @@
 import type { LevelSource } from "./types";
 
-export function formatSource(source: Pick<LevelSource, "section_title" | "page_start" | "page_end">): string {
+export function formatSource(source: LevelSource): string {
   const pages =
     source.page_start === source.page_end
       ? `Hal. ${source.page_start}`

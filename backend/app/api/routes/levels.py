@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.models.class_ import ClassStatus
 from app.models.level import Level
 from app.models.user import User
-from app.schemas.level import ChunkOptionResponse, LevelResponse, LevelUpdateRequest
+from app.schemas.level import LevelResponse, LevelUpdateRequest
 from app.services import class_service, level_service
 from app.worker.queue import get_arq_pool
 
@@ -53,15 +53,6 @@ def _require_level_owner(db: Session, level_id: UUID, teacher: User) -> Level:
     cls = class_service.get_class_or_404(db, level.class_id)
     class_service.require_owner(cls, teacher)
     return level
-
-
-@router.get("/api/v1/classes/{class_id}/chunks", response_model=list[ChunkOptionResponse])
-def list_class_chunks(
-    class_id: UUID, teacher: User = Depends(require_teacher), db: Session = Depends(get_db)
-) -> list[ChunkOptionResponse]:
-    cls = class_service.get_class_or_404(db, class_id)
-    class_service.require_owner(cls, teacher)
-    return level_service.list_chunk_options(db, class_id)
 
 
 @router.patch("/api/v1/levels/{level_id}", response_model=LevelResponse)

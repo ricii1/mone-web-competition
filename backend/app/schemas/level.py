@@ -6,24 +6,13 @@ from app.models.level import LevelStatus, LevelType
 
 MAX_KEY_POINTS = 8
 MAX_CONTENT_CHARS = 20000
-MAX_SOURCES = 12
+MAX_SOURCE_NOTE_CHARS = 1000
 
 
 class LevelSourceResponse(BaseModel):
-    chunk_id: UUID
     section_title: str | None
     page_start: int
     page_end: int
-
-
-class ChunkOptionResponse(BaseModel):
-    """A section of the class materials that a teacher can pick as a level source."""
-
-    id: UUID
-    section_title: str | None
-    page_start: int
-    page_end: int
-    material_name: str
 
 
 class LevelResponse(BaseModel):
@@ -34,6 +23,7 @@ class LevelResponse(BaseModel):
     type: LevelType
     order_index: int
     content: str | None = None
+    source_note: str | None = None
     summary: str | None
     key_points: list[str] = []
     sources: list[LevelSourceResponse] = []
@@ -50,9 +40,8 @@ class LevelUpdateRequest(BaseModel):
     status: LevelStatus | None = None
     summary: str | None = None
     content: str | None = None
+    source_note: str | None = None
     key_points: list[str] | None = None
-    # Replaces the level's source sections; every id must be a chunk of the same class.
-    source_chunk_ids: list[UUID] | None = None
 
     @field_validator("content")
     @classmethod
@@ -63,14 +52,14 @@ class LevelUpdateRequest(BaseModel):
             raise ValueError(f"content maksimal {MAX_CONTENT_CHARS} karakter")
         return value.strip()
 
-    @field_validator("source_chunk_ids")
+    @field_validator("source_note")
     @classmethod
-    def _validate_sources(cls, value: list[UUID] | None) -> list[UUID] | None:
+    def _validate_source_note(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        if len(value) > MAX_SOURCES:
-            raise ValueError(f"sumber maksimal {MAX_SOURCES} bagian")
-        return list(dict.fromkeys(value))
+        if len(value) > MAX_SOURCE_NOTE_CHARS:
+            raise ValueError(f"sumber maksimal {MAX_SOURCE_NOTE_CHARS} karakter")
+        return value.strip()
 
     @field_validator("key_points")
     @classmethod

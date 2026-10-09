@@ -9,7 +9,7 @@ import { CheckIcon, ClockIcon, EyeIcon, LightbulbIcon, MapIcon, PencilIcon, Plus
 import Markdown from "@/components/Markdown";
 import { countWords, formatSource, readMinutes } from "@/lib/levels";
 import { useClassTitle } from "@/lib/useClassTitle";
-import type { ChunkOption, Level, Question } from "@/lib/types";
+import type { Level, Question } from "@/lib/types";
 
 type Tab = "material" | "questions";
 
@@ -33,8 +33,7 @@ export default function TeacherLevelPage() {
   const [showPreview, setShowPreview] = useState(false);
   const [summary, setSummary] = useState("");
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
-  const [sourceIds, setSourceIds] = useState<string[]>([]);
-  const [chunkOptions, setChunkOptions] = useState<ChunkOption[] | null>(null);
+  const [sourceNote, setSourceNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -45,7 +44,7 @@ export default function TeacherLevelPage() {
     setContent(l.content ?? "");
     setSummary(l.summary ?? "");
     setKeyPoints(l.key_points ?? []);
-    setSourceIds(l.sources.map((s) => s.chunk_id));
+    setSourceNote(l.source_note ?? "");
   }, []);
 
   const loadQuestions = useCallback(async () => {
@@ -68,10 +67,6 @@ export default function TeacherLevelPage() {
   }, [classId, levelId, applyLevel]);
 
   useEffect(() => {
-    api.listChunks(classId).then(setChunkOptions).catch(() => setChunkOptions([]));
-  }, [classId]);
-
-  useEffect(() => {
     if (window.location.hash === "#soal") setTab("questions");
   }, []);
 
@@ -90,7 +85,7 @@ export default function TeacherLevelPage() {
         content,
         summary,
         key_points: keyPoints.map((p) => p.trim()).filter(Boolean),
-        source_chunk_ids: sourceIds,
+        source_note: sourceNote,
       });
       applyLevel(updated);
       setSaved(true);
@@ -303,40 +298,33 @@ export default function TeacherLevelPage() {
 
           <div className="surface">
             <p className="field-label flex items-center gap-2"><ScrollIcon size={20} />Sumber</p>
-            <p className="mb-3 text-base text-ink/75">
-              Centang bagian materi yang dipakai untuk artikel ini. Murid tidak melihatnya, ini untuk jejak sumber.
+            <label htmlFor="level-source" className="sr-only">
+              Sumber materi
+            </label>
+            <textarea
+              id="level-source"
+              rows={3}
+              maxLength={1000}
+              value={sourceNote}
+              onChange={(e) => setSourceNote(e.target.value)}
+              placeholder="Contoh: Buku IPA Kelas 4, bab Siklus Air, hal. 12-15"
+              aria-describedby="source-hint"
+              className="input-box"
+            />
+            <p id="source-hint" className="mt-2 text-base text-ink/75">
+              Tulis dari mana materi ini berasal. Bebas, boleh nama buku, bab, atau halaman.
             </p>
-            {chunkOptions === null ? (
-              <p role="status" className="text-ink/75">Memuat bagian materi...</p>
-            ) : chunkOptions.length === 0 ? (
-              <p className="text-ink/75">Belum ada materi yang selesai diproses. Unggah PDF di halaman class dulu.</p>
-            ) : (
-              <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto">
-                {chunkOptions.map((c) => {
-                  const checked = sourceIds.includes(c.id);
-                  return (
-                    <li key={c.id}>
-                      <label className="flex min-h-[48px] cursor-pointer items-start gap-3 rounded-xl px-2 py-2 hover:bg-sky-soft/50">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() =>
-                            setSourceIds((ids) => (checked ? ids.filter((id) => id !== c.id) : [...ids, c.id]))
-                          }
-                          className="mt-1 h-5 w-5 shrink-0 accent-[#1f7fd0]"
-                        />
-                        <span className="min-w-0">
-                          <span className="block text-ink/90">{formatSource(c)}</span>
-                          <span className="block truncate text-sm text-ink/70">{c.material_name}</span>
-                        </span>
-                      </label>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {sourceIds.length > 12 && (
-              <p role="alert" className="mt-2 text-base text-alert">Maksimal 12 bagian sumber.</p>
+            {level.sources.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer font-bold text-ink/80">
+                  Bagian PDF yang dipakai AI ({level.sources.length})
+                </summary>
+                <ul className="mt-2 list-disc pl-5 text-ink/80">
+                  {level.sources.map((s, i) => (
+                    <li key={i}>{formatSource(s)}</li>
+                  ))}
+                </ul>
+              </details>
             )}
           </div>
 
