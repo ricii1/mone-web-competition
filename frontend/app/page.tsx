@@ -16,6 +16,8 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import DemoTabs from "@/components/landing/DemoTabs";
+import FeatureBento from "@/components/landing/FeatureBento";
+import HowItWorks from "@/components/landing/HowItWorks";
 import Parallax from "@/components/landing/Parallax";
 import Reveal from "@/components/landing/Reveal";
 import ScrollProgress from "@/components/landing/ScrollProgress";
@@ -151,47 +153,24 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section aria-labelledby="features-title" className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        <section aria-labelledby="features-title" className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
           <Reveal>
             <h2 id="features-title" className="mb-2 text-3xl font-extrabold sm:text-4xl">
               Apa saja yang <span className="draw-underline">bisa dilakukan?</span>
             </h2>
-            <p className="mb-6 max-w-2xl text-lg text-ink/85">Dibuat untuk guru dan murid SD. Mudah dipakai, seru dipelajari.</p>
+            <p className="mb-8 max-w-2xl text-lg text-ink/85">Dibuat untuk guru dan murid SD. Mudah dipakai, seru dipelajari.</p>
           </Reveal>
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map(({ Icon, tone, title, text }, i) => (
-              <Reveal as="li" key={title} variant={(["left", "zoom", "right"] as const)[i % 3]} delay={Math.floor(i / 3) * 150} className="surface lift">
-                <span className={`lift-icon mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${tone}`}>
-                  <Icon size={28} />
-                </span>
-                <h3 className="mb-1 text-xl font-bold">{title}</h3>
-                <p className="text-base text-ink/85">{text}</p>
-              </Reveal>
-            ))}
-          </ul>
+          <FeatureBento />
         </section>
 
-        <section aria-labelledby="steps-title" className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        <section aria-labelledby="steps-title" className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
           <Reveal>
-            <h2 id="steps-title" className="mb-6 text-3xl font-extrabold sm:text-4xl">
+            <h2 id="steps-title" className="mb-2 text-3xl font-extrabold sm:text-4xl">
               <span className="draw-underline">Cara kerja</span>
             </h2>
+            <p className="mb-10 max-w-2xl text-lg text-ink/85">Tiga langkah dari file PDF sampai petualangan di peta level.</p>
           </Reveal>
-          <Reveal className="relative">
-            <div aria-hidden="true" className="draw-line absolute left-[16%] right-[16%] top-[2px] hidden border-t-4 border-dotted border-highlight-dark md:block" />
-          <ol className="grid gap-4 md:grid-cols-3">
-            {STEPS.map(({ Icon, title, text }, i) => (
-              <Reveal as="li" key={title} variant="flip" delay={i * 200} className="surface lift relative">
-                <span className="pop-in absolute -top-4 left-5 flex h-9 w-9 items-center justify-center rounded-full bg-highlight font-display text-lg font-extrabold">
-                  {i + 1}
-                </span>
-                <Icon size={32} className="mb-2 mt-2 text-sky-dark" />
-                <h3 className="mb-1 text-xl font-bold">{title}</h3>
-                <p className="text-base text-ink/85">{text}</p>
-              </Reveal>
-            ))}
-          </ol>
-          </Reveal>
+          <HowItWorks />
         </section>
 
         <section id="demo" aria-labelledby="demo-title" className="mx-auto max-w-4xl scroll-mt-20 px-4 py-10 sm:px-6">

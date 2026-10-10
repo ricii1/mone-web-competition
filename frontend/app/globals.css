@@ -643,3 +643,67 @@
   opacity: 1;
   transform: none;
 }
+
+/* ---- Landing: feature tiles and the "cara kerja" map. ---- */
+.trail {
+  clip-path: inset(0 0 0 0);
+}
+.tile {
+  position: relative;
+}
+.answer-correct,
+.sparkle-pulse,
+.podium,
+.join-pop,
+.role-knob,
+.role-a,
+.role-b,
+.step-node {
+  animation: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-pending .trail { clip-path: inset(0 0 100% 0); }
+  .reveal-in .trail { clip-path: inset(0 0 0 0); transition: clip-path 2.4s ease-in-out 0.3s; }
+  .answer-correct { animation: answer-correct 3.6s ease-in-out infinite; }
+  .sparkle-pulse { animation: twinkle 1.8s ease-in-out infinite; }
+  .podium { transform-origin: 50% 100%; animation: podium-grow 3.2s ease-in-out infinite; }
+  .join-pop { animation: join-pop 3.2s ease-in-out infinite; }
+  .role-knob { animation: role-knob 4s ease-in-out infinite; }
+  .role-a { animation: role-a 4s ease-in-out infinite; }
+  .role-b { animation: role-b 4s ease-in-out infinite; }
+  .step-node { animation: bob 3.2s ease-in-out infinite; }
+  .tile:hover { transform: translateY(-6px) rotate(-0.6deg); }
+}
+@keyframes answer-correct {
+  0%, 35% { transform: scale(1); background: #fff; border-color: #E6DCC0; color: rgb(27 42 65 / 0.7); }
+  45%, 100% { transform: scale(1.04); }
+}
+@keyframes podium-grow {
+  0%, 15% { transform: scaleY(0.35); }
+  40%, 85% { transform: scaleY(1); }
+  100% { transform: scaleY(0.35); }
+}
+@keyframes join-pop {
+  0%, 10% { transform: scale(0); }
+  25%, 80% { transform: scale(1); }
+  100% { transform: scale(0); }
+}
+@keyframes role-knob {
+  0%, 40% { transform: translateX(0); }
+  50%, 90% { transform: translateX(100%); }
+  100% { transform: translateX(0); }
+}
+@keyframes role-a {
+  0%, 40% { color: #fff; }
+  50%, 90% { color: #1B2A41; }
+  100% { color: #fff; }
+}
+@keyframes role-b {
+  0%, 40% { color: #1B2A41; }
+  50%, 90% { color: #fff; }
+  100% { color: #1B2A41; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reveal.reveal-pending.reveal-in.lift:hover { transform: translateY(-6px); }
+  .reveal.reveal-pending.reveal-in.tile:hover { transform: translateY(-6px) rotate(-0.6deg); }
+}
