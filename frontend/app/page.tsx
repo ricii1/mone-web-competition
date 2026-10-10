@@ -16,6 +16,7 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import DemoTabs from "@/components/landing/DemoTabs";
+import Reveal from "@/components/landing/Reveal";
 import Mascot from "@/components/Mascot";
 
 export const metadata: Metadata = {
@@ -102,16 +103,28 @@ export default function HomePage() {
 
       <main>
         <section aria-labelledby="hero-title" className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:py-16">
-          <div>
-            <Mascot mood="cheering" size={120} className="hop mb-2 lg:hidden" />
-            <h1 id="hero-title" className="mb-3 text-balance text-4xl font-extrabold sm:text-5xl">
+          <div className="relative">
+            <span aria-hidden="true" className="float-slow pointer-events-none absolute -top-2 right-4 text-highlight lg:right-10" style={{ "--d": "0ms" } as React.CSSProperties}>
+              <StarIcon size={34} />
+            </span>
+            <span aria-hidden="true" className="float-slow pointer-events-none absolute -bottom-6 right-1/3 text-sky" style={{ "--d": "-2s" } as React.CSSProperties}>
+              <StarIcon size={22} />
+            </span>
+            <span aria-hidden="true" className="float-slow pointer-events-none absolute left-1/2 top-1/3 hidden text-grass sm:block" style={{ "--d": "-4s" } as React.CSSProperties}>
+              <StarIcon size={26} />
+            </span>
+            <div className="relative mb-2 inline-block lg:hidden">
+              <span aria-hidden="true" className="hop-shadow" style={{ background: "rgb(27 42 65 / 0.22)" }} />
+              <Mascot mood="cheering" size={120} className="hop block" />
+            </div>
+            <h1 id="hero-title" style={{ "--d": "100ms" } as React.CSSProperties} className="rise mb-3 text-balance text-4xl font-extrabold sm:text-5xl">
               Belajar jadi petualangan seru!
             </h1>
-            <p className="mb-6 max-w-xl text-xl text-ink/85">
+            <p style={{ "--d": "250ms" } as React.CSSProperties} className="rise mb-6 max-w-xl text-xl text-ink/85">
               Guru unggah materi PDF, EduMap menyusun peta level. Murid bermain, menjawab kuis, dan mengumpulkan bintang.
             </p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Link href="/register" className="btn-primary">
+            <div style={{ "--d": "400ms" } as React.CSSProperties} className="rise flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link href="/register" className="btn-primary pulse-soft">
                 <RocketIcon size={22} />
                 Daftar gratis
               </Link>
@@ -130,19 +143,21 @@ export default function HomePage() {
         </section>
 
         <section aria-labelledby="features-title" className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-          <h2 id="features-title" className="mb-2 text-3xl font-extrabold sm:text-4xl">
-            Apa saja yang bisa dilakukan?
-          </h2>
-          <p className="mb-6 max-w-2xl text-lg text-ink/85">Dibuat untuk guru dan murid SD. Mudah dipakai, seru dipelajari.</p>
+          <Reveal>
+            <h2 id="features-title" className="mb-2 text-3xl font-extrabold sm:text-4xl">
+              Apa saja yang bisa dilakukan?
+            </h2>
+            <p className="mb-6 max-w-2xl text-lg text-ink/85">Dibuat untuk guru dan murid SD. Mudah dipakai, seru dipelajari.</p>
+          </Reveal>
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map(({ Icon, tone, title, text }) => (
-              <li key={title} className="surface">
-                <span className={`mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${tone}`}>
+            {FEATURES.map(({ Icon, tone, title, text }, i) => (
+              <Reveal as="li" key={title} delay={(i % 3) * 120} className="surface lift">
+                <span className={`lift-icon mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${tone}`}>
                   <Icon size={28} />
                 </span>
                 <h3 className="mb-1 text-xl font-bold">{title}</h3>
                 <p className="text-base text-ink/85">{text}</p>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </section>
@@ -153,14 +168,14 @@ export default function HomePage() {
           </h2>
           <ol className="grid gap-4 md:grid-cols-3">
             {STEPS.map(({ Icon, title, text }, i) => (
-              <li key={title} className="surface relative">
-                <span className="absolute -top-4 left-5 flex h-9 w-9 items-center justify-center rounded-full bg-highlight font-display text-lg font-extrabold">
+              <Reveal as="li" key={title} delay={i * 180} className="surface lift relative">
+                <span className="pop-in absolute -top-4 left-5 flex h-9 w-9 items-center justify-center rounded-full bg-highlight font-display text-lg font-extrabold">
                   {i + 1}
                 </span>
                 <Icon size={32} className="mb-2 mt-2 text-sky-dark" />
                 <h3 className="mb-1 text-xl font-bold">{title}</h3>
                 <p className="text-base text-ink/85">{text}</p>
-              </li>
+              </Reveal>
             ))}
           </ol>
         </section>
@@ -170,12 +185,17 @@ export default function HomePage() {
             Coba sekarang
           </h2>
           <p className="mb-5 text-lg text-ink/85">Tanpa daftar dan tanpa menyimpan apa pun. Pilih peranmu lalu mulai.</p>
-          <DemoTabs />
+          <Reveal>
+            <DemoTabs />
+          </Reveal>
         </section>
 
         <section aria-labelledby="cta-title" className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-          <div className="rounded-4xl bg-ink px-6 py-10 text-center text-chalk sm:px-10">
-            <Mascot mood="happy" size={90} className="bob mx-auto" />
+          <Reveal className="rounded-4xl bg-ink px-6 py-10 text-center text-chalk sm:px-10">
+            <div className="relative mx-auto mb-2 w-fit">
+              <span aria-hidden="true" className="hop-shadow" style={{ width: 80, marginLeft: -40, height: 12 }} />
+              <Mascot mood="happy" size={90} className="hop block" />
+            </div>
             <h2 id="cta-title" className="mb-2 text-3xl font-extrabold sm:text-4xl">
               Siap mulai petualangan?
             </h2>
@@ -190,7 +210,7 @@ export default function HomePage() {
                 Masuk
               </Link>
             </div>
-          </div>
+          </Reveal>
         </section>
       </main>
 
