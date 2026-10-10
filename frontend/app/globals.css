@@ -30,6 +30,13 @@
     min-height: 100vh;
   }
 
+  /* In-page links (e.g. "Coba dulu") glide instead of jumping; reduced motion keeps the jump. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
