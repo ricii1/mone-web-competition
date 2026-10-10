@@ -217,3 +217,10 @@ agent: "Ditambahkan `frontend/app/icon.svg` (konvensi file icon Next.js, otomati
 user: "eh edit sumbernya kok checklist? Kalau nanti implementasi pdf gimana? apa ga lebih baik edit sumbernya lgsg teks aja ya inputnya?"
 
 agent: "Setuju: checklist tidak skala (PDF asli menghasilkan puluhan sampai ratusan chunk dan guru tidak kenal 'chunk'). Jejak chunk dari AI (`level_chunks`) harus tetap dibuat pipeline karena menjadi dasar retrieval dan prinsip 'konten AI berasal dari materi guru', jadi tidak boleh diubah-ubah manual. Perubahan: kolom baru `levels.source_note` (migrasi 0007, teks bebas maks 1000 karakter) yang diisi guru, mis. 'Buku IPA Kelas 4, bab Siklus Air, hal. 12-15'; PATCH menerima `source_note` (kosong = dihapus). Endpoint daftar chunk dan `source_chunk_ids` yang saya buat sebelumnya dihapus karena tidak lagi dipakai. UI: kotak teks Sumber, dan bagian PDF yang dipakai AI tampil read-only dalam lipatan 'Bagian PDF yang dipakai AI (n)'. Dua test baru (edit/kosongkan/trim, terlalu panjang dan guru lain ditolak); 86 test lulus, ruff/eslint/tsc bersih; migrasi sudah dijalankan di Docker."
+
+## 2026-10-11
+
+**09:00**
+user: "apa mungkin jika burung di sidebar login dan register dibuat lompat lompat biar lucu"
+
+agent: "Mungkin dan murah: burung hantu di `AuthHero` kini memakai kelas `hop` (menggantikan `bob`): dua lompatan per 3,4 detik dengan squash & stretch (menciut saat mendarat, memanjang di udara; lompatan pertama 38px, kedua 24px) lalu jeda singkat, diulang. CSS murni, hanya `transform` (compositor), titik tumpu di kaki, dan hanya aktif saat `prefers-reduced-motion: no-preference`. Gelembung ucapan tetap diam agar teks mudah dibaca. Diverifikasi di Chrome headless: animasi `hop` berjalan dan transform pada 0/200/700/1200/2000 ms sesuai (peregangan, naik -37,9px, mendarat menciut, lompatan kedua -23,8px). Lint dan tsc bersih."

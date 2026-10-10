@@ -58,7 +58,7 @@ export default function AuthHero({ tagline }: { tagline: string }) {
 
       <div className="relative flex flex-col items-center gap-1" aria-hidden="true">
         <div className="relative">
-          <Mascot mood="cheering" size={200} className="bob" />
+          <Mascot mood="cheering" size={200} className="hop" />
           <div className="absolute -right-24 top-0 grid">
             {BUBBLES.map((text, i) => (
               <span
