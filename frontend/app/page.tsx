@@ -16,7 +16,9 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import DemoTabs from "@/components/landing/DemoTabs";
+import Parallax from "@/components/landing/Parallax";
 import Reveal from "@/components/landing/Reveal";
+import ScrollProgress from "@/components/landing/ScrollProgress";
 import Mascot from "@/components/Mascot";
 
 export const metadata: Metadata = {
@@ -99,20 +101,27 @@ export default function HomePage() {
             </Link>
           </div>
         </nav>
+        <ScrollProgress />
       </header>
 
       <main>
         <section aria-labelledby="hero-title" className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:py-16">
           <div className="relative">
-            <span aria-hidden="true" className="float-slow pointer-events-none absolute -top-2 right-4 text-highlight lg:right-10" style={{ "--d": "0ms" } as React.CSSProperties}>
-              <StarIcon size={34} />
-            </span>
-            <span aria-hidden="true" className="float-slow pointer-events-none absolute -bottom-6 right-1/3 text-sky" style={{ "--d": "-2s" } as React.CSSProperties}>
-              <StarIcon size={22} />
-            </span>
-            <span aria-hidden="true" className="float-slow pointer-events-none absolute left-1/2 top-1/3 hidden text-grass sm:block" style={{ "--d": "-4s" } as React.CSSProperties}>
-              <StarIcon size={26} />
-            </span>
+            <Parallax speed={-0.12} className="pointer-events-none absolute -top-2 right-4 lg:right-10" style={{ willChange: "transform" }}>
+              <span aria-hidden="true" className="float-slow block text-highlight">
+                <StarIcon size={34} />
+              </span>
+            </Parallax>
+            <Parallax speed={0.1} className="pointer-events-none absolute -bottom-6 right-1/3">
+              <span aria-hidden="true" className="float-slow block text-sky" style={{ "--d": "-2s" } as React.CSSProperties}>
+                <StarIcon size={22} />
+              </span>
+            </Parallax>
+            <Parallax speed={-0.2} className="pointer-events-none absolute left-1/2 top-1/3 hidden sm:block">
+              <span aria-hidden="true" className="float-slow block text-grass" style={{ "--d": "-4s" } as React.CSSProperties}>
+                <StarIcon size={26} />
+              </span>
+            </Parallax>
             <div className="relative mb-2 inline-block lg:hidden">
               <span aria-hidden="true" className="hop-shadow" style={{ background: "rgb(27 42 65 / 0.22)" }} />
               <Mascot mood="cheering" size={120} className="hop block" />
@@ -145,13 +154,13 @@ export default function HomePage() {
         <section aria-labelledby="features-title" className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
           <Reveal>
             <h2 id="features-title" className="mb-2 text-3xl font-extrabold sm:text-4xl">
-              Apa saja yang bisa dilakukan?
+              Apa saja yang <span className="draw-underline">bisa dilakukan?</span>
             </h2>
             <p className="mb-6 max-w-2xl text-lg text-ink/85">Dibuat untuk guru dan murid SD. Mudah dipakai, seru dipelajari.</p>
           </Reveal>
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(({ Icon, tone, title, text }, i) => (
-              <Reveal as="li" key={title} delay={(i % 3) * 120} className="surface lift">
+              <Reveal as="li" key={title} variant={(["left", "zoom", "right"] as const)[i % 3]} delay={Math.floor(i / 3) * 150} className="surface lift">
                 <span className={`lift-icon mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${tone}`}>
                   <Icon size={28} />
                 </span>
@@ -163,12 +172,16 @@ export default function HomePage() {
         </section>
 
         <section aria-labelledby="steps-title" className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-          <h2 id="steps-title" className="mb-6 text-3xl font-extrabold sm:text-4xl">
-            Cara kerja
-          </h2>
+          <Reveal>
+            <h2 id="steps-title" className="mb-6 text-3xl font-extrabold sm:text-4xl">
+              <span className="draw-underline">Cara kerja</span>
+            </h2>
+          </Reveal>
+          <Reveal className="relative">
+            <div aria-hidden="true" className="draw-line absolute left-[16%] right-[16%] top-[2px] hidden border-t-4 border-dotted border-highlight-dark md:block" />
           <ol className="grid gap-4 md:grid-cols-3">
             {STEPS.map(({ Icon, title, text }, i) => (
-              <Reveal as="li" key={title} delay={i * 180} className="surface lift relative">
+              <Reveal as="li" key={title} variant="flip" delay={i * 200} className="surface lift relative">
                 <span className="pop-in absolute -top-4 left-5 flex h-9 w-9 items-center justify-center rounded-full bg-highlight font-display text-lg font-extrabold">
                   {i + 1}
                 </span>
@@ -178,13 +191,16 @@ export default function HomePage() {
               </Reveal>
             ))}
           </ol>
+          </Reveal>
         </section>
 
         <section id="demo" aria-labelledby="demo-title" className="mx-auto max-w-4xl scroll-mt-20 px-4 py-10 sm:px-6">
-          <h2 id="demo-title" className="mb-2 text-3xl font-extrabold sm:text-4xl">
-            Coba sekarang
-          </h2>
-          <p className="mb-5 text-lg text-ink/85">Tanpa daftar dan tanpa menyimpan apa pun. Pilih peranmu lalu mulai.</p>
+          <Reveal>
+            <h2 id="demo-title" className="mb-2 text-3xl font-extrabold sm:text-4xl">
+              <span className="draw-underline">Coba sekarang</span>
+            </h2>
+            <p className="mb-5 text-lg text-ink/85">Tanpa daftar dan tanpa menyimpan apa pun. Pilih peranmu lalu mulai.</p>
+          </Reveal>
           <Reveal>
             <DemoTabs />
           </Reveal>

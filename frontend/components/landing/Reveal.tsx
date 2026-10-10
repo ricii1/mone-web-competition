@@ -12,12 +12,15 @@ export default function Reveal({
   delay = 0,
   className = "",
   as: Tag = "div",
+  variant = "up",
 }: {
   children: ReactNode;
   /** Stagger in milliseconds. */
   delay?: number;
   className?: string;
   as?: "div" | "li" | "section";
+  /** Entrance style: slide from below/left/right, zoom in, or flip up in 3D. */
+  variant?: "up" | "left" | "right" | "zoom" | "flip";
 }) {
   const ref = useRef<HTMLElement | null>(null);
 
@@ -44,7 +47,7 @@ export default function Reveal({
   return (
     <Tag
       ref={ref as never}
-      className={`reveal ${className}`}
+      className={`reveal reveal-${variant} ${className}`}
       style={{ "--reveal-delay": `${delay}ms` } as CSSProperties}
     >
       {children}

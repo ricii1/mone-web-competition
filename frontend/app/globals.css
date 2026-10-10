@@ -599,3 +599,47 @@
 .reveal.reveal-done {
   transition: transform 0.2s ease-out;
 }
+
+/* ---- Scroll-driven landing effects (variants, line draw, underline draw). ---- */
+.reveal.reveal-pending.reveal-left { transform: translateX(-56px); }
+.reveal.reveal-pending.reveal-right { transform: translateX(56px); }
+.reveal.reveal-pending.reveal-zoom { transform: scale(0.82); }
+.reveal.reveal-pending.reveal-flip { transform: perspective(700px) rotateX(-28deg) translateY(24px); transform-origin: 50% 100%; }
+
+.draw-line {
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+.draw-underline {
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+}
+.draw-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 8px;
+  border-radius: 999px;
+  background: theme("colors.highlight");
+  opacity: 0.7;
+  z-index: -1;
+  transform: scaleX(1);
+  transform-origin: left center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-pending .draw-line,
+  .reveal-pending .draw-underline::after { transform: scaleX(0); }
+  .reveal-in .draw-line,
+  .reveal-in .draw-underline::after {
+    transform: scaleX(1);
+    transition: transform 0.9s cubic-bezier(0.3, 0.8, 0.3, 1) calc(var(--reveal-delay, 0ms) + 300ms);
+  }
+}
+/* Variant "pending" rules are more specific than ".reveal-in"; this keeps the final state winning. */
+.reveal.reveal-pending.reveal-in {
+  opacity: 1;
+  transform: none;
+}
