@@ -23,6 +23,8 @@ EduMap adalah platform web pembelajaran untuk lomba *"Innovating Education Throu
 
 **Satu akun, dua peran (seperti Kahoot).** Email yang sama bisa membuat class (mode Guru) dan mengikuti class orang lain (mode Murid). Tidak ada akun "khusus guru" atau "khusus murid"; pengguna berpindah mode lewat tombol di header. `users.role` hanya menentukan halaman awal (default saat daftar/pilihan saat masuk), bukan hak akses.
 
+**Halaman awal (`/`) adalah landing page promosi**, bukan sekadar tombol masuk: hero, fitur (grid bento berwarna dengan adegan mini), "Cara kerja" (peta game tiga pemberhentian), demo interaktif **"Coba sekarang"** sebagai murid dan sebagai guru, CTA, dan footer. Demo murni di browser (state lokal, tanpa backend, tanpa akun, tanpa localStorage) dan dimuat lazy lewat `next/dynamic`. Identitas visual: maskot burung hantu "Bu Hoo" (`Mascot.tsx`, juga ikon tab lewat `app/icon.svg`), lompat dengan bayangan di panel login/register dan landing, awan latar yang bergerak kiri ke kanan.
+
 Prinsip produk yang tidak boleh dilanggar:
 
 1. **Driven by guru dan kurikulum.** Semua konten AI (ringkasan, soal, jawaban tutor) harus berasal dari materi yang diunggah guru melalui retrieval. AI tidak boleh mengarang dari pengetahuan umum. Jika konteks tidak cukup, AI harus bilang tidak tahu.
@@ -61,13 +63,17 @@ Jangan menambah dependency besar (Celery, LangChain, ORM lain, UI kit berat, thr
 .
 ├── AGENTS.md
 ├── docker-compose.yml
+├── run-uvicorn.sh            # menjalankan API native (conda)
+├── README.md                 # cara start Docker dan conda, akun seed, troubleshooting
+├── conversation.md
 ├── .env.example
 ├── frontend/                 # Next.js
 │   ├── app/
 │   │   ├── (auth)/           # login, register
 │   │   ├── teacher/          # dashboard guru, kelola class, review level & soal
 │   │   └── student/          # daftar class, map level, halaman level
-│   ├── components/
+│   ├── components/           # termasuk landing/ (landing page dan demo) dan Mascot, CloudSky, AuthHero
+│   ├── app/icon.svg          # ikon tab (maskot)
 │   ├── lib/                  # api client, auth helper, types
 │   └── ...
 └── backend/                  # FastAPI
@@ -112,6 +118,8 @@ docker compose exec backend ruff check . && docker compose exec backend ruff for
 cd frontend && npm run lint && npm run build
 ```
 
+Alternatif tanpa membangun image PyTorch (lebih ringan, memakai conda; detail di `README.md`): `docker compose up -d postgres redis`, lalu `./run-uvicorn.sh`, `arq app.worker.settings.WorkerSettings`, dan `npm run dev`. Jangan menjalankan mode Docker dan native bersamaan (port 8000/3000/5433/6379 sama). Mode Docker penuh: `docker compose up -d` menjalankan semuanya (migrasi otomatis), `docker compose down` mematikan semuanya; worker tidak reload otomatis (`docker compose restart worker` setelah mengubah kode job/prompt). Data demo: `python -m app.db.seed` (`--examples` untuk memberi class contoh ke akun lama).
+
 Sebelum menyatakan task selesai: jalankan test backend, `ruff check`, dan `npm run lint` untuk bagian yang disentuh.
 
 ---
@@ -135,6 +143,8 @@ Semua config lewat env (lihat `.env.example`). Jangan pernah hardcode secret ata
 | `UPLOAD_DIR` | Folder penyimpanan PDF (volume Docker) |
 | `MAX_UPLOAD_MB` | Batas ukuran PDF, default `20` |
 | `NEXT_PUBLIC_API_URL` | URL backend untuk frontend |
+| `CORS_ORIGINS` | Origin frontend yang diizinkan (pisahkan dengan koma). `localhost` dan `127.0.0.1` di port mana pun selalu diizinkan; alamat lain (IP jaringan, domain) harus ditambahkan di sini |
+| `API_PORT`, `WEB_PORT` | Port host untuk API dan frontend di Docker Compose (default `8000` dan `3000`) |
 
 ---
 
@@ -145,11 +155,11 @@ Mengikuti ERD yang disepakati. Tambahan kolom boleh, tetapi perubahan relasi har
 | Tabel | Kolom penting |
 |---|---|
 | `users` | `id`, `name`, `email` (unik), `password_hash`, `role` (`teacher` \| `student`; hanya halaman awal default, bukan pembatas akses, lihat bagian 11) |
-| `classes` | `id`, `teacher_id`, `title`, `description`, `visibility` (`public` \| `private`), `invite_code` (hanya private), `status` (`draft` \| `published`) |
+| `classes` | `id`, `teacher_id`, `title`, `description`, `visibility` (`public` \| `private`), `invite_code` (hanya private), `status` (`draft` \| `published`), `is_example` (class contoh: tidak bisa dipublish), `generation_status`/`generation_error` (status job generate level) |
 | `materials` | `id`, `class_id`, `file_name`, `file_path`, `vector_status` (`pending` \| `processing` \| `ready` \| `failed`), `error_message` |
 | `material_chunks` | `id`, `material_id`, `class_id`, `section_title`, `content`, `page_start`, `page_end`, `embedding vector(384)` |
-| `levels` | `id`, `class_id`, `prerequisite_id` (nullable, self-FK), `title`, `type` (`lesson_quiz` \| `boss`), `order_index`, `summary`, `status` (`draft` \| `approved`) |
-| `level_chunks` | relasi level ↔ chunk sumber (`level_id`, `chunk_id`) |
+| `levels` | `id`, `class_id`, `prerequisite_id` (nullable, self-FK), `title`, `type` (`lesson_quiz` \| `boss`), `order_index`, `content` (artikel Markdown), `summary`, `key_points` (JSONB), `source_note` (teks sumber bebas yang diisi guru), `status` (`draft` \| `approved`) |
+| `level_chunks` | relasi level ↔ chunk sumber (`level_id`, `chunk_id`); jejak retrieval AI, dibuat pipeline dan hanya dibaca guru (tidak diedit manual) |
 | `questions` | `id`, `level_id`, `question_text`, `question_type` (`multiple_choice`), `options` (JSONB), `correct_answer`, `explanation`, `source_chunk_id`, `status` (`draft` \| `approved`) |
 | `enrollments` | `id`, `user_id`, `class_id`, `joined_at`; unik (`user_id`, `class_id`) |
 | `progress` | `id`, `user_id`, `level_id`, `status` (`locked` \| `unlocked` \| `completed`), `best_score`, `completed_at`; unik (`user_id`, `level_id`) |
@@ -195,6 +205,7 @@ Generate level:
 
 - Satu section materi = satu level (`lesson_quiz`). Setiap 3–5 level, sisipkan satu level `boss` yang soalnya menggabungkan level-level sebelumnya.
 - Graph dibuat **linear dengan sedikit percabangan**: setiap level punya paling banyak satu `prerequisite_id`. Level pertama tanpa prasyarat. Jangan membuat skill-tree kompleks.
+- Setiap level lesson berisi artikel (`content`), rangkuman, poin penting, dan sumber. Guru bisa mengedit semuanya di tab "Materi" (layout satu kolom lebar, tombol Simpan menempel di dasar layar). **Sumber** ada dua: `source_note` (teks bebas yang diketik guru, mis. "Buku IPA Kelas 4 hal. 12-15") dan bagian PDF yang dipakai AI (`level_chunks`, hanya tampil read-only). Jangan mengubah kembali ke checklist chunk: tidak skala untuk PDF asli.
 - Hasil generate berstatus `draft`. Guru bisa mengubah judul, urutan, prasyarat, menggabung/memisah level, lalu publish class.
 
 Soal (hybrid):
@@ -281,6 +292,10 @@ Frontend:
 
 - TypeScript strict, hindari `any`.
 - Halaman murid (map dan level) utamakan ringan: Server Components bila memungkinkan, tanpa animasi berat (awan latar `CloudSky variant="page"` boleh: hanya `transform`, maksimal 4 awan, 2 di HP, mati saat `prefers-reduced-motion`), gambar dioptimasi, dan pastikan tampil baik di lebar 360px. React Flow hanya dimuat di halaman map (dynamic import).
+- Animasi hanya `transform`/`opacity`, CSS murni atau komponen kecil tanpa dependency (tidak ada framer-motion, GSAP, atau lib ikon), dan wajib mati saat `prefers-reduced-motion`. Landing page boleh lebih kaya (`Reveal` dengan varian up/left/right/zoom/flip, `ScrollProgress`, `Parallax`, garis yang tergambar saat scroll, `scroll-behavior: smooth` untuk tautan `#`), tetapi tidak boleh ada konten yang tersembunyi tanpa JS.
+- Peta level (`LevelMap`) punya tombol "Tampilan awal" di kiri bawah (murid, guru, dan preview) yang mengembalikan viewport ke tampilan awal, untuk kasus peta tergeser atau ter-zoom. Logika tampilan awal dan tombol harus memakai hook yang sama (`useDefaultView`).
+- Latar halaman (warna dan titik matahari) berada di `html`, bukan `body`, supaya layer `fixed` dengan `z-index` negatif (awan) terlihat.
+- Saat memformat, jangan menjalankan `prettier --write` pada file lama (mengubah gaya seluruh file); cukup ikuti gaya file di sekitarnya.
 - Semua panggilan API lewat satu client di `frontend/lib/api.ts`.
 - Tampilkan state loading/empty/error, termasuk status pemrosesan PDF untuk guru.
 
@@ -302,6 +317,8 @@ Wajib ada test `pytest` untuk:
 - Job worker: status material berubah benar saat sukses, gagal, dan retry; job idempoten jika dijalankan ulang.
 - Live class: skor dan bonus kecepatan, penolakan jawaban terlambat/ganda, jawaban benar tidak bocor sebelum soal ditutup.
 - Leaderboard Redis bisa dibangun ulang dari Postgres dan hasilnya sama.
+
+Test memakai database terpisah `edumap_test` (dibuat otomatis di server Postgres yang sama) supaya data development tidak terhapus. Test yang menegaskan perilaku lama harus diganti dengan test untuk aturan baru, bukan dilemahkan (contoh: akun ganda guru+murid).
 
 Dalam test, **mock Groq dan model embedding**; test tidak boleh memanggil jaringan atau mengunduh model. Gunakan `fakeredis` atau Redis dari Docker khusus test; jangan memakai Redis development. Job `arq` diuji dengan memanggil fungsi job langsung. Test UI tidak wajib.
 
