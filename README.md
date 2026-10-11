@@ -158,6 +158,7 @@ Alur uji cepat: masuk sebagai guru, buka class, unggah PDF, tunggu status `ready
 Variabel `LLM_MODE` di `.env` menentukan cara materi dan soal dibuat:
 
 - `mock` (disarankan untuk pengembangan dan demo; nilai bawaan kode adalah `groq`): jawaban dibuat offline dari teks materi tanpa API key. Hasilnya kaku, tetapi seluruh alur (generate, progres real-time, review) bisa dicoba. `MOCK_LLM_DELAY_SECONDS` mengatur jeda tiruan agar progres terlihat.
+- `openai`: memanggil gateway OpenAI-compatible (bawaan: `LLM_BASE_URL=https://senopati.its.ac.id/llm-gateway/v1`, model `LLM_MODEL`, mis. `qwen3:14b` atau `qwen3.5:9b`) dengan kunci `API_KEY_LITELLM`. Panggilan lewat `httpx`, tanpa dependency baru.
 - `groq`: memanggil Groq API sungguhan. Isi `GROQ_API_KEY` dan `GROQ_MODEL` (cek nama model aktif di console Groq). Satu level memakai satu panggilan LLM untuk materi, rangkuman, dan poin penting, ditambah satu untuk soal. Hasil disimpan di database, dan murid tidak pernah memicu panggilan LLM.
 
 ## Test dan lint

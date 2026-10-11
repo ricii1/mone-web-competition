@@ -1,4 +1,5 @@
 import fakeredis.aioredis
+import httpx
 import pytest
 from pydantic import BaseModel
 
@@ -52,3 +53,39 @@ async def test_call_groq_structured_rejects_schema_mismatch(monkeypatch, redis):
 
     with pytest.raises(LlmOutputError):
         await call_groq_structured(redis, "system", "user", _Schema)
+
+
+def _fake_post(payload: dict, status_code: int = 200):
+    captured: dict = {}
+
+    def fake_post(url, headers, json, timeout):
+        captured.update(url=url, headers=headers, body=json)
+        return httpx.Response(status_code, json=payload, request=httpx.Request("POST", url))
+
+    return fake_post, captured
+
+
+def test_openai_call_uses_gateway_and_strips_think(monkeypatch):
+    payload = {"choices": [{"message": {"content": '<think>mikir</think>{"summary": "ok"}'}}]}
+    fake_post, captured = _fake_post(payload)
+    monkeypatch.setattr(llm_module.settings, "llm_mode", "openai")
+    monkeypatch.setattr(llm_module.settings, "api_key_litellm", "kunci")
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+
+    raw = llm_module._call_groq_sync("system", "user")
+
+    assert raw == '{"summary": "ok"}'
+    assert captured["url"].endswith("/chat/completions")
+    assert captured["headers"]["Authorization"] == "Bearer kunci"
+    assert captured["body"]["model"] == llm_module.settings.llm_model
+
+
+def test_openai_call_exposes_status_for_rate_limit(monkeypatch):
+    fake_post, _ = _fake_post({"error": "slow down"}, status_code=429)
+    monkeypatch.setattr(llm_module.settings, "llm_mode", "openai")
+    monkeypatch.setattr(llm_module.httpx, "post", fake_post)
+
+    with pytest.raises(llm_module.LlmHttpError) as exc_info:
+        llm_module._call_groq_sync("system", "user")
+
+    assert exc_info.value.status_code == 429

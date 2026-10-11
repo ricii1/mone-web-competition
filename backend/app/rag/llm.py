@@ -1,9 +1,11 @@
 import asyncio
 import json
+import re
 import time
 from pathlib import Path
 from typing import TypeVar
 
+import httpx
 from groq import Groq
 from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
@@ -47,7 +49,38 @@ async def _acquire_rate_limit_slot(redis: Redis) -> None:
         await asyncio.sleep(60 - (time.time() % 60))
 
 
+class LlmHttpError(Exception):
+    """HTTP error from the OpenAI-compatible gateway; exposes status_code for 429 backoff."""
+
+    def __init__(self, status_code: int, body: str) -> None:
+        super().__init__(f"LLM gateway HTTP {status_code}: {body[:200]}")
+        self.status_code = status_code
+
+
+def _call_openai_sync(system_prompt: str, user_prompt: str) -> str:
+    response = httpx.post(
+        f"{settings.llm_base_url.rstrip('/')}/chat/completions",
+        headers={"Authorization": f"Bearer {settings.api_key_litellm}"},
+        json={
+            "model": settings.llm_model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "response_format": {"type": "json_object"},
+        },
+        timeout=settings.llm_timeout_seconds,
+    )
+    if response.status_code >= 400:
+        raise LlmHttpError(response.status_code, response.text)
+    content = response.json()["choices"][0]["message"].get("content") or ""
+    # Reasoning models (qwen3) may inline <think> blocks; keep only the answer.
+    return re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+
+
 def _call_groq_sync(system_prompt: str, user_prompt: str) -> str:
+    if settings.llm_mode == "openai":
+        return _call_openai_sync(system_prompt, user_prompt)
     response = get_groq_client().chat.completions.create(
         model=settings.groq_model,
         messages=[

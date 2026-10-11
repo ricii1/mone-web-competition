@@ -44,7 +44,7 @@ Prinsip produk yang tidak boleh dilanggar:
 | ORM & migrasi | SQLAlchemy 2.x + Alembic |
 | Database | PostgreSQL 16 + ekstensi `pgvector` (data relasional dan vektor dalam satu DB) |
 | Embedding | Model lokal di CPU via `sentence-transformers`, default `intfloat/multilingual-e5-small` (dimensi 384) |
-| LLM | Groq API, nama model dari env `GROQ_MODEL` |
+| LLM | Groq API (`GROQ_MODEL`) atau gateway OpenAI-compatible LiteLLM ITS (`LLM_MODE=openai`, `LLM_BASE_URL`, `LLM_MODEL`, `API_KEY_LITELLM`) |
 | PDF parsing | `pymupdf` (fitz) |
 | Auth | JWT dibuat oleh FastAPI (email + password, hash `bcrypt`/`argon2`) |
 | Queue & worker | Redis 7 + `arq` (worker async terpisah dari API) |
@@ -137,7 +137,7 @@ Semua config lewat env (lihat `.env.example`). Jangan pernah hardcode secret ata
 | `JWT_SECRET`, `JWT_EXPIRES_MINUTES` | Konfigurasi token |
 | `GROQ_API_KEY` | API key Groq |
 | `GROQ_MODEL` | Nama model Groq; cek daftar model aktif di console Groq, jangan hardcode di kode |
-| `LLM_MODE` | `groq` (default) atau `mock`: jawaban offline dari konteks materi untuk demo/dev tanpa API key; `MOCK_LLM_DELAY_SECONDS` mengatur jeda tiruan |
+| `LLM_MODE` | `groq` (default), `openai` (gateway OpenAI-compatible; memakai `LLM_BASE_URL`, `LLM_MODEL`, `API_KEY_LITELLM`), atau `mock`: jawaban offline dari konteks materi untuk demo/dev tanpa API key; `MOCK_LLM_DELAY_SECONDS` mengatur jeda tiruan |
 | `EMBEDDING_MODEL` | Default `intfloat/multilingual-e5-small` |
 | `EMBEDDING_DIM` | Default `384`, harus sama dengan dimensi kolom `vector` |
 | `UPLOAD_DIR` | Folder penyimpanan PDF (volume Docker) |

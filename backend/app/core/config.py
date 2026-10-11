@@ -14,7 +14,12 @@ class Settings(BaseSettings):
 
     groq_api_key: str = ""
     groq_model: str = ""
-    # "groq" calls the real API; "mock" answers offline from the prompt context (demo/dev).
+    # OpenAI-compatible gateway (LLM_MODE=openai), e.g. LiteLLM at ITS Senopati.
+    llm_base_url: str = "https://senopati.its.ac.id/llm-gateway/v1"
+    llm_model: str = "qwen3:14b"
+    api_key_litellm: str = ""
+    llm_timeout_seconds: float = 180.0
+    # "groq" / "openai" call a real API; "mock" answers offline from the prompt context (demo/dev).
     llm_mode: str = "groq"
     mock_llm_delay_seconds: float = 0.8
 
