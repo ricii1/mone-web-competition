@@ -254,3 +254,23 @@ agent: "Dua bagian landing dirombak total agar bergaya dunia game EduMap, bukan 
 user: "semua perubahan yang anda buat di sini simpan ke @AGENTS.md"
 
 agent: "AGENTS.md diperbarui dengan semua perubahan sesi ini yang belum tercatat: (bagian 1) landing page promosi dengan demo murid/guru client-only, identitas maskot dan ikon tab; (3) struktur repo (`components/landing/`, `app/icon.svg`, `run-uvicorn.sh`, `README.md`); (4) cara menjalankan Docker satu perintah, mode native conda, dan seed; (5) env `CORS_ORIGINS` (localhost/127.0.0.1 otomatis diizinkan) serta `API_PORT`/`WEB_PORT`; (6) kolom model data `classes.is_example/generation_*` dan `levels.content/key_points/source_note`, serta `level_chunks` sebagai jejak AI read-only; (8) editor materi satu kolom dengan dua jenis sumber (teks bebas oleh guru, chunk AI read-only) dan larangan kembali ke checklist; (12) aturan animasi (transform/opacity, tanpa dependency, reduced-motion, landing boleh lebih kaya), tombol 'Tampilan awal' peta level, latar di `html`, dan larangan prettier --write pada file lama; (13) database test terpisah dan aturan mengganti test lama, bukan melemahkannya. Aturan akun ganda guru+murid dan awan latar sudah ada dari tugas sebelumnya."
+
+**08:55**
+user: "baca @AGENTS.md lalu buatkan tombol help setelah user login agar user dapat panduan bagiamana menggunakan aplikasi"
+
+agent: "Ditambahkan tombol 'Bantuan' (ikon tanda tanya) di `AppHeader`, sehingga muncul di semua halaman guru dan murid setelah login. Tombol membuka dialog modal `components/HelpButton.tsx` berisi panduan 5 langkah dalam Bahasa Indonesia sederhana dengan maskot Bu Hoo. Ada dua tab, 'Sebagai Murid' dan 'Sebagai Guru'; tab awal mengikuti mode yang sedang dipakai. Dialog bisa ditutup dengan tombol X, 'Mengerti!', klik latar, atau Escape; scroll halaman dikunci saat terbuka dan fokus dikembalikan ke tombol. Tanpa dependency baru, animasi memakai kelas `pop-in` yang sudah ada (mati saat reduced-motion). Lint dan tsc bersih."
+
+**09:15**
+user: "oke sekarang untuk modelnya bisakah jika pakai model https://senopati.its.ac.id/llm-gateway/v1 openai compatible dengan api key dari .env API_KEY_LITELLM"
+
+agent: "Bisa. Ditambahkan `LLM_MODE=openai` di `app/rag/llm.py`: POST ke `{LLM_BASE_URL}/chat/completions` lewat `httpx` (sudah jadi dependency, tidak ada yang baru) dengan `Authorization: Bearer API_KEY_LITELLM`, `response_format=json_object`. Config baru di `core/config.py`: `llm_base_url`, `llm_model` (default `qwen3:14b`), `api_key_litellm`, `llm_timeout_seconds`. Respons 4xx/5xx dibungkus `LlmHttpError` yang punya `status_code` supaya backoff 429 yang ada tetap jalan (SDK Groq dulu yang menyediakannya); blok `<think>` dibuang. Rate limit Redis, validasi Pydantic, dan retry JSON dipakai ulang. Gateway dicek: `/models` mengembalikan `qwen3:14b`, `qwen3.5:9b`, `embeddinggemma:latest`; panggilan nyata `call_groq_structured` menghasilkan `ibukota='Jakarta'`. Dua test baru di `test_llm.py` (header/URL/model, strip think, 429). `.env` lokal diubah ke `LLM_MODE=openai`. Debugging: pytest awalnya crash karena plugin ROS dari PYTHONPATH sistem (`No module named 'lark'`); dijalankan dengan `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` dan tanpa PYTHONPATH. Ruff bersih, 27 test lolos (llm, mock_llm, worker_generate)."
+
+**09:50**
+user: "coba sih testing dengan user saya ... buatkan sebuah file pelajaran dan cek hasilnya"
+
+agent: "Dibuat PDF 'Siklus Air' (4 section, topik SD) dengan pymupdf, lalu lewat API: login, buat class 'Tes Siklus Air (LLM ITS)', unggah PDF, jalankan generate. Hasil dengan `LLM_MODE=openai` (qwen3:14b): 4 level lesson_quiz berstatus draft, prasyarat berantai, artikel 188-301 kata, rangkuman dan 4-6 poin penting per level, 5 soal pilihan ganda per level. Isi setia pada materi. Generate memakan sekitar 3 menit. Catatan kualitas: satu soal punya opsi ganda ('Penguapan' dua kali), dan belum ada level boss karena hanya 4 level."
+
+**09:48**
+user: (temuan saat pengujian di atas)
+
+agent: "Debugging: unggah PDF gagal dengan `AttributeError: 'list' object has no attribute 'tolist'` di `app/rag/embedding.py`. Penyebab: sentence-transformers 6.x dengan `convert_to_numpy=False` mengembalikan list tensor untuk input batch, bukan satu tensor, sehingga `.tolist()` gagal. Bug ini sudah ada sebelumnya dan tidak berkaitan dengan mode LLM baru. Perbaikan: `convert_to_numpy=True` di `embed_passages` dan `embed_query`. Setelah worker di-restart, material berstatus ready dan generate berjalan."
