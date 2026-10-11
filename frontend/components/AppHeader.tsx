@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Avatar from "@/components/Avatar";
+import HelpButton from "@/components/HelpButton";
 import { LogoutIcon, StarIcon } from "@/components/icons";
 import { api } from "@/lib/api";
 import { clearToken } from "@/lib/auth";
@@ -61,6 +62,7 @@ export default function AppHeader({ homeHref }: { homeHref: string }) {
             <span className="sm:hidden">{otherLabel}</span>
             <span className="hidden sm:inline">Ganti ke {otherLabel}</span>
           </Link>
+          <HelpButton initialMode={isTeacher ? "teacher" : "student"} />
           <button
             onClick={handleLogout}
             className="btn-ghost"
