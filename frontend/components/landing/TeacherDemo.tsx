@@ -11,14 +11,31 @@ const PROCESS_STEPS = ["Membaca PDF", "Memecah materi", "Menyusun level"];
 const STEP_MS = 900;
 const LEVEL_MS = 700;
 
+const SAMPLE_ARTICLES = [
+  DEMO_ARTICLE,
+  "### Awan menjadi hujan\n\nTitik-titik air di awan berkumpul. Saat makin berat, air jatuh ke bumi sebagai hujan. Air hujan mengisi sungai, danau, dan tanah.",
+  "### Air kembali ke laut\n\nAir hujan mengalir melalui sungai menuju laut. Sebagian air meresap ke dalam tanah. Matahari dapat memanaskan air lagi sehingga siklus air terus berulang.",
+];
+const SAMPLE_QUESTIONS = [
+  DEMO_TEACHER_QUESTION,
+  { text: "Apa yang terjadi saat titik-titik air di awan makin berat?", options: ["Jatuh sebagai hujan", "Menjadi pasir", "Berubah menjadi matahari", "Berhenti bergerak"], correct: 0 },
+  { text: "Ke mana air sungai mengalir?", options: ["Ke laut", "Ke matahari", "Ke bulan", "Ke awan langsung"], correct: 0 },
+];
+
 const STEP_LABELS = ["Unggah", "Cek draft", "Publish"];
 
 export default function TeacherDemo() {
   const [stage, setStage] = useState<Stage>("upload");
   const [step, setStep] = useState(0);
   const [levelsShown, setLevelsShown] = useState(0);
-  const [article, setArticle] = useState(DEMO_ARTICLE);
-  const [approved, setApproved] = useState(false);
+  const [activeLevel, setActiveLevel] = useState(0);
+  const [articles, setArticles] = useState(SAMPLE_ARTICLES);
+  const [materialApprovals, setMaterialApprovals] = useState<boolean[]>([false, false, false]);
+  const [questionApprovals, setQuestionApprovals] = useState<boolean[]>([false, false, false]);
+  const article = articles[activeLevel];
+  const approved = questionApprovals[activeLevel];
+  const question = SAMPLE_QUESTIONS[activeLevel];
+  const canPublish = materialApprovals.every(Boolean) && questionApprovals.every(Boolean);
 
   // Fake processing: advance through the stages with timers, then reveal draft levels one by one.
   useEffect(() => {
@@ -60,8 +77,10 @@ export default function TeacherDemo() {
     setStage("upload");
     setStep(0);
     setLevelsShown(0);
-    setArticle(DEMO_ARTICLE);
-    setApproved(false);
+    setActiveLevel(0);
+    setArticles(SAMPLE_ARTICLES);
+    setMaterialApprovals([false, false, false]);
+    setQuestionApprovals([false, false, false]);
   }
 
   const current = stage === "upload" || stage === "processing" ? 0 : stage === "review" ? 1 : 2;
@@ -146,7 +165,12 @@ export default function TeacherDemo() {
                     {i + 1}. {l.title}
                   </p>
                   <p className="text-sm text-ink/80">{l.note}</p>
-                  <span className="badge-highlight mt-1">Draft</span>
+                  <span className={materialApprovals[i] && questionApprovals[i] ? "badge-success mt-1" : "badge-highlight mt-1"}>
+                    {materialApprovals[i] && questionApprovals[i] ? "Siap terbit" : "Draft"}
+                  </span>
+                  <button type="button" className="btn-ghost btn-sm mt-2" aria-pressed={activeLevel === i} onClick={() => setActiveLevel(i)}>
+                    Tinjau level {i + 1}
+                  </button>
                 </li>
               ))}
             </ul>
@@ -155,13 +179,16 @@ export default function TeacherDemo() {
           <div className="min-w-0">
             <label htmlFor="demo-article" className="field-label mb-1 flex items-center gap-2">
               <PencilIcon size={18} />
-              Ubah bacaan level 1
+              Ubah bacaan level {activeLevel + 1}
             </label>
             <textarea
               id="demo-article"
               rows={12} className="input-box font-mono !text-base"
               value={article}
-              onChange={(e) => setArticle(e.target.value)}
+              onChange={(e) => {
+                setArticles((items) => items.map((item, i) => i === activeLevel ? e.target.value : item));
+                setMaterialApprovals((items) => items.map((item, i) => i === activeLevel ? false : item));
+              }}
             />
           </div>
           <div className="min-w-0">
@@ -171,31 +198,37 @@ export default function TeacherDemo() {
             </div>
           </div>
 
+          <div className="lg:col-span-2">
+            <button type="button" className="btn-ghost" aria-pressed={materialApprovals[activeLevel]} disabled={!article.trim()}
+              onClick={() => setMaterialApprovals((items) => items.map((item, i) => i === activeLevel ? !item : item))}>
+              {materialApprovals[activeLevel] ? "Batalkan persetujuan materi" : "Setujui materi"} level {activeLevel + 1}
+            </button>
+          </div>
           <div className="card lg:col-span-2">
-            <p className="field-label">Soal 1 dari AI</p>
-            <p className="font-bold">{DEMO_TEACHER_QUESTION.text}</p>
+            <p className="field-label">Soal contoh level {activeLevel + 1} dari AI</p>
+            <p className="font-bold">{question.text}</p>
             <ul className="my-2 grid gap-1 sm:grid-cols-2">
-              {DEMO_TEACHER_QUESTION.options.map((o, i) => (
-                <li key={o} className={i === DEMO_TEACHER_QUESTION.correct ? "font-bold text-correct-dark" : ""}>
+              {question.options.map((o, i) => (
+                <li key={o} className={i === question.correct ? "font-bold text-correct-dark" : ""}>
                   {String.fromCharCode(65 + i)}. {o}
-                  {i === DEMO_TEACHER_QUESTION.correct && " (jawaban benar)"}
+                  {i === question.correct && " (jawaban benar)"}
                 </li>
               ))}
             </ul>
             <div className="flex flex-wrap items-center gap-3">
               <span className={approved ? "badge-success" : "badge-highlight"}>{approved ? "Disetujui" : "Draft"}</span>
-              <button type="button" className="btn-ghost btn-sm" aria-pressed={approved} onClick={() => setApproved((a) => !a)}>
+              <button type="button" className="btn-ghost btn-sm" aria-pressed={approved} onClick={() => setQuestionApprovals((items) => items.map((item, i) => i === activeLevel ? !item : item))}>
                 {approved ? "Kembalikan ke draft" : "Setujui soal"}
               </button>
             </div>
           </div>
 
           <div className="lg:col-span-2">
-            <button type="button" className="btn-green" disabled={!approved} onClick={() => setStage("published")}>
+            <button type="button" className="btn-green" disabled={!canPublish} onClick={() => setStage("published")}>
               <RocketIcon size={22} />
               Publish kelas
             </button>
-            {!approved && <p className="mt-2 text-base text-ink/80">Setujui dulu soalnya, baru kelas bisa dipublish.</p>}
+            <p className="mt-2 text-base text-ink/80">{materialApprovals.filter(Boolean).length} dari 3 materi dan {questionApprovals.filter(Boolean).length} dari 3 soal disetujui. Semua materi level dan minimal satu soal di setiap level harus disetujui sebelum kelas diterbitkan.</p>
           </div>
         </div>
       )}

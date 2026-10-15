@@ -1,21 +1,23 @@
 import type { Metadata } from "next";
-import { Baloo_2, Nunito } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
-const display = Baloo_2({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
+const display = localFont({
+  src: "./fonts/baloo2-latin.woff2",
+  weight: "400 800",
+  display: "swap",
   variable: "--font-display",
 });
 
-const body = Nunito({
-  subsets: ["latin"],
-  weight: ["400", "600", "700", "800"],
+const body = localFont({
+  src: "./fonts/nunito-latin.woff2",
+  weight: "200 1000",
+  display: "swap",
   variable: "--font-body",
 });
 
 export const metadata: Metadata = {
-  title: "EduMap",
+  title: "Peta Pintar",
   description: "Platform pembelajaran dengan peta level berbasis materi guru",
 };
 

@@ -109,8 +109,13 @@ def test_example_class_questions_are_valid(client, db):
                 assert q.source_chunk_id is not None
 
 
-def test_example_class_cannot_be_generated(client, db):
+def test_example_class_cannot_be_generated(client, db, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    pool = AsyncMock(side_effect=ConnectionError("Queue unavailable"))
+    monkeypatch.setattr("app.api.routes.levels.get_arq_pool", pool)
     token = _register(client, "teacher_ex5@example.com", "teacher")
     class_id = client.get("/api/v1/classes/mine", headers=_auth(token)).json()[0]["id"]
     resp = client.post(f"/api/v1/classes/{class_id}/levels/generate", headers=_auth(token))
     assert resp.status_code == 400
+    pool.assert_not_awaited()

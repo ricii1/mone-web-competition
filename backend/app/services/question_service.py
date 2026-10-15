@@ -1,9 +1,11 @@
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.level import Level
+from app.models.live_session import LiveSession, LiveSessionStatus
 from app.models.progress import Attempt, ProgressStatus
 from app.models.question import Question, QuestionStatus
 from app.schemas.question import (
@@ -11,6 +13,7 @@ from app.schemas.question import (
     QuestionResult,
     QuestionUpdateRequest,
     QuizSubmitResponse,
+    validate_question_options,
 )
 from app.services.leaderboard_service import on_best_score_changed
 from app.services.progress_service import PASSING_SCORE, get_or_create_progress, record_quiz_result
@@ -64,6 +67,16 @@ def create_question(db: Session, level_id: UUID, body: QuestionCreateRequest) ->
 
 
 def update_question(db: Session, question: Question, body: QuestionUpdateRequest) -> Question:
+    # Refresh after the lock: a concurrent edit may have changed the omitted fields.
+    db.query(Level).filter(Level.id == question.level_id).with_for_update().one()
+    db.refresh(question, with_for_update=True)
+    try:
+        validate_question_options(
+            body.options if body.options is not None else question.options,
+            body.correct_answer if body.correct_answer is not None else question.correct_answer,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if body.question_text is not None:
         _require_unique_question(db, question.level_id, body.question_text, question.id)
     for field in ("question_text", "options", "correct_answer", "explanation", "status"):
@@ -76,8 +89,26 @@ def update_question(db: Session, question: Question, body: QuestionUpdateRequest
 
 
 def delete_question(db: Session, question: Question) -> None:
-    db.delete(question)
-    db.commit()
+    db.refresh(question, with_for_update=True)
+    if (
+        db.query(LiveSession.id)
+        .filter(
+            LiveSession.level_id == question.level_id,
+            LiveSession.status.in_([LiveSessionStatus.waiting, LiveSessionStatus.running]),
+        )
+        .first()
+    ):
+        raise HTTPException(status_code=409, detail="Akhiri kuis bersama sebelum menghapus soal")
+    if db.query(Attempt.id).filter(Attempt.question_id == question.id).first():
+        raise HTTPException(status_code=409, detail="Soal sudah dikerjakan dan tidak bisa dihapus")
+    try:
+        db.delete(question)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409, detail="Soal sedang digunakan dan tidak bisa dihapus"
+        ) from exc
 
 
 async def submit_quiz(

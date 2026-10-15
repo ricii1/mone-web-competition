@@ -24,6 +24,22 @@ class ApiError extends Error {
   }
 }
 
+function errorMessage(body: unknown): string {
+  const fallback = "Terjadi kesalahan. Coba lagi ya.";
+  if (!body || typeof body !== "object" || !("detail" in body)) return fallback;
+  const detail: unknown = body.detail;
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const labels: Record<string, string> = { name: "Nama", email: "Email", password: "Kata sandi", title: "Nama kelas", file: "File PDF", question_text: "Pertanyaan", options: "Pilihan jawaban", correct_answer: "Jawaban benar" };
+    const fields = [...new Set(detail.flatMap((issue: unknown) => {
+      if (!issue || typeof issue !== "object" || !("loc" in issue) || !Array.isArray(issue.loc)) return [];
+      return issue.loc.flatMap((part: unknown) => typeof part === "string" && typeof labels[part] === "string" ? [labels[part]] : []);
+    }))];
+    return fields.length ? `${fields.join(", ")} belum sesuai. Periksa isian dan batas panjangnya, lalu coba lagi.` : "Ada isian yang belum sesuai. Periksa kembali, lalu coba lagi.";
+  }
+  return fallback;
+}
+
 async function request<T>(path: string, init: RequestInit = {}, responseType: "json" | "blob" = "json"): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -34,8 +50,8 @@ async function request<T>(path: string, init: RequestInit = {}, responseType: "j
 
   const res = await fetch(`${API_URL}${path}`, { ...init, headers });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, body.detail ?? "Terjadi kesalahan");
+    const body = await res.json().catch(() => ({ detail: "Layanan belum bisa dihubungi. Coba lagi ya." }));
+    throw new ApiError(res.status, errorMessage(body));
   }
   if (res.status === 204) return undefined as T;
   return (responseType === "blob" ? res.blob() : res.json()) as Promise<T>;
@@ -50,8 +66,8 @@ async function uploadFile<T>(path: string, file: File): Promise<T> {
 
   const res = await fetch(`${API_URL}${path}`, { method: "POST", headers, body: formData });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, body.detail ?? "Terjadi kesalahan");
+    const body = await res.json().catch(() => ({ detail: "Layanan belum bisa dihubungi. Coba lagi ya." }));
+    throw new ApiError(res.status, errorMessage(body));
   }
   return res.json() as Promise<T>;
 }

@@ -5,13 +5,14 @@ const { test } = require("node:test");
 const vm = require("node:vm");
 const ts = require("typescript");
 
-function harness(throws = false) {
+function harness(throws = false, token = "token") {
   const timers = new Map();
   const intervals = new Map();
   const sockets = [];
   let nextId = 0;
   class Socket {
-    constructor() {
+    constructor(url) {
+      this.url = url;
       if (throws) throw new Error("WebSocket unavailable");
       sockets.push(this);
     }
@@ -20,7 +21,7 @@ function harness(throws = false) {
   const exports = {};
   const context = {
     exports,
-    require: () => ({ getToken: () => "token" }),
+    require: () => ({ getToken: () => token }),
     process: { env: {} },
     WebSocket: Socket,
     setTimeout: (fn) => { timers.set(++nextId, fn); return nextId; },
@@ -62,6 +63,35 @@ test("constructor failure keeps polling and schedules a reconnect", () => {
   assert.equal(h.intervals.size, 1);
   assert.equal(h.timers.size, 1);
   stop();
+  assert.equal(h.intervals.size, 0);
+  assert.equal(h.timers.size, 0);
+});
+
+
+test("socket handshake encodes token and malformed payloads do not interrupt valid events", () => {
+  const h = harness(false, "secret +/&?");
+  const received = [];
+  const stop = h.connect("/ws/classes/class", (event) => received.push(event));
+  assert.equal(h.sockets[0].url, "ws://localhost:8000/ws/classes/class?token=secret%20%2B%2F%26%3F");
+  h.sockets[0].onmessage({ data: "invalid JSON" });
+  h.sockets[0].onmessage({ data: JSON.stringify({ type: "leaderboard_updated", payload: { class_id: "class" } }) });
+  assert.equal(received.length, 1);
+  assert.equal(received[0].type, "leaderboard_updated");
+  stop();
+});
+
+test("polling continues while socket is open and stopped callbacks cannot reconnect", () => {
+  const h = harness();
+  let polls = 0;
+  const stop = h.connect("/ws/live/session", () => {}, () => { polls++; });
+  h.sockets[0].onopen();
+  [...h.intervals.values()][0]();
+  assert.equal(polls, 3);
+  h.sockets[0].onclose();
+  const retry = [...h.timers.values()][0];
+  stop();
+  retry();
+  assert.equal(h.sockets.length, 1);
   assert.equal(h.intervals.size, 0);
   assert.equal(h.timers.size, 0);
 });

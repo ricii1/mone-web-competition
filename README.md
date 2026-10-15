@@ -1,8 +1,15 @@
-# EduMap
+# Peta Pintar
 
 Platform belajar berbasis peta level untuk **guru SD dan murid SD**. Guru mengunggah materi PDF, sistem menyusunnya menjadi level (materi → rangkuman → kuis), dan murid membuka level satu per satu sambil mengumpulkan bintang. Ada leaderboard per class dan live class ala Kahoot.
 
-> Nama proyek masih sementara. Aturan produk, arsitektur, dan konvensi kode ada di [`AGENTS.md`](AGENTS.md).
+> Nama final proyek: **Peta Pintar**. Aturan produk, arsitektur, dan konvensi kode ada di [`AGENTS.md`](AGENTS.md).
+
+Instalasi lama tetap memakai kredensial database dan volume yang sudah ada di `.env`.
+Jangan mengganti `POSTGRES_USER`, `POSTGRES_DB`, atau password database lama hanya
+untuk menyesuaikan nama aplikasi. Jika environment conda lama memiliki nama lain,
+jalankan API dengan `CONDA_ENV=<nama-environment-lama> ./run-uvicorn.sh`.
+Branding baru memakai penyimpanan token browser baru; masuk kembali bila sebelumnya
+sudah login. Akun, kelas, PDF, dan progres tetap berada di database yang sama.
 
 ## Isi
 
@@ -12,6 +19,7 @@ Platform belajar berbasis peta level untuk **guru SD dan murid SD**. Guru mengun
 - [Data demo dan akun uji](#data-demo-dan-akun-uji)
 - [Mode LLM: mock atau Groq](#mode-llm-mock-atau-groq)
 - [Test dan lint](#test-dan-lint)
+- [Status perbaikan audit](docs/testing-fixes.md)
 - [Deployment Dokploy](docs/deploy-dokploy.md)
 - [Pemecahan masalah](#pemecahan-masalah)
 
@@ -63,8 +71,8 @@ Backend, worker, dan frontend jalan langsung di mesin. Hanya Postgres dan Redis 
 ### 1. Siapkan environment
 
 ```bash
-conda create -n edumap python=3.11 nodejs=20 -y
-conda activate edumap
+conda create -n petapintar python=3.11 nodejs=24 -y
+conda activate petapintar
 
 # PyTorch versi CPU dulu, agar sentence-transformers tidak menarik versi CUDA yang sangat besar
 pip install torch --index-url https://download.pytorch.org/whl/cpu
@@ -82,7 +90,7 @@ cp .env.example .env
 Ubah nilai berikut agar mengarah ke service di host:
 
 ```env
-DATABASE_URL=postgresql+psycopg://edumap:edumap@localhost:5433/edumap
+DATABASE_URL=postgresql+psycopg://petapintar:petapintar@localhost:5433/petapintar
 REDIS_URL=redis://localhost:6379/0
 UPLOAD_DIR=/path/absolut/ke/repo/uploads
 LLM_MODE=mock
@@ -108,7 +116,7 @@ python -m app.db.seed          # data demo (opsional)
 
 ### 4. Jalankan tiga proses aplikasi
 
-Gunakan tiga terminal (masing-masing dengan `conda activate edumap`).
+Gunakan tiga terminal (masing-masing dengan `conda activate petapintar`).
 
 ```bash
 # Terminal 1 - API (port 8000)
@@ -144,10 +152,10 @@ CONDA_ENV=nama-lain ./run-uvicorn.sh
 
 | Peran | Email |
 |---|---|
-| Guru | `guru@edumap.id` |
-| Murid | `murid1@edumap.id` sampai `murid4@edumap.id` |
+| Guru | `guru@petapintar.id` |
+| Murid | `murid1@petapintar.id` sampai `murid4@petapintar.id` |
 
-- Class publik **Biologi Sel Kelas XI** dengan progres dan leaderboard contoh (murid1 sudah menyelesaikan beberapa level, murid4 masih baru).
+- Class publik **IPA Kelas 4 - Siklus Air** dengan progres dan leaderboard contoh (murid1 sudah menyelesaikan beberapa level, murid4 masih baru). Seed baru memakai artikel dan soal tingkat SD; seed tidak menulis ulang kelas lama.
 - Satu akun bisa jadi guru dan murid (seperti Kahoot): pakai tombol **Ganti ke Guru/Murid** di header. Pilihan peran saat daftar/masuk hanya menentukan halaman awal.
 - Setiap akun yang mendaftar otomatis mendapat class referensi **"Contoh: IPA Kelas 4 - Siklus Air"** sebagai gambaran hasil akhir (materi, rangkuman, poin penting, soal). Class ini tidak bisa dipublish.
 - Untuk akun yang sudah ada sebelum fitur class contoh: `python -m app.db.seed --examples`.
@@ -172,11 +180,14 @@ ruff check . && ruff format --check .
 
 # Frontend (dari folder frontend)
 npm run lint
-npx tsc --noEmit
+npm run typecheck
 npm run build
+node --test tests/*.test.cjs
 ```
 
-Test memakai database terpisah `edumap_test` yang dibuat otomatis di server Postgres yang sama, jadi data pengembangan tidak ikut terhapus. Groq dan model embedding selalu di-mock, dan Redis memakai `fakeredis`.
+Test memakai database terpisah `<nama_database>_test` yang dibuat otomatis di server Postgres yang sama (default instalasi baru `petapintar_test`), jadi data pengembangan tidak ikut terhapus. Groq dan model embedding selalu di-mock; pub/sub Redis memakai `fakeredis`. Koneksi pool arq asli diblok pada test: test antrean harus memasang mock secara eksplisit, sehingga suite tidak memerlukan Redis development atau menghubunginya.
+
+Hasil audit awal tersedia di [laporan testing](docs/testing-audit.md); status sesudah perbaikan ada di [docs/testing-fixes.md](docs/testing-fixes.md).
 
 ## Pemecahan masalah
 

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.models.level import Level
@@ -27,21 +28,28 @@ def initialize_progress_for_enrollment(db: Session, user_id: UUID, class_id: UUI
 
 
 def get_or_create_progress(db: Session, user_id: UUID, level_id: UUID) -> Progress:
-    progress = (
+    db.execute(
+        insert(Progress)
+        .values(user_id=user_id, level_id=level_id, status=ProgressStatus.locked)
+        .on_conflict_do_nothing(constraint="uq_progress_user_level")
+    )
+    return (
         db.query(Progress)
         .filter(Progress.user_id == user_id, Progress.level_id == level_id)
-        .first()
+        .populate_existing()
+        .with_for_update()
+        .one()
     )
-    if progress is None:
-        progress = Progress(user_id=user_id, level_id=level_id, status=ProgressStatus.locked)
-        db.add(progress)
-        db.commit()
-        db.refresh(progress)
-    return progress
 
 
 def unlock_dependents(db: Session, user_id: UUID, level_id: UUID) -> None:
-    dependents = db.query(Level).filter(Level.prerequisite_id == level_id).all()
+    source = db.get(Level, level_id)
+    dependents = (
+        db.query(Level)
+        .filter(Level.prerequisite_id == level_id, Level.class_id == source.class_id)
+        .order_by(Level.id)
+        .all()
+    )
     for dependent in dependents:
         progress = get_or_create_progress(db, user_id, dependent.id)
         if progress.status == ProgressStatus.locked:
@@ -55,7 +63,7 @@ def record_quiz_result(db: Session, user_id: UUID, level_id: UUID, score_percent
     if score_percent >= PASSING_SCORE and progress.status != ProgressStatus.completed:
         progress.status = ProgressStatus.completed
         progress.completed_at = datetime.now(UTC)
-        db.commit()
+        db.flush()
         unlock_dependents(db, user_id, level_id)
     else:
         db.commit()

@@ -78,6 +78,28 @@ async def test_mock_rejects_context_too_short(mock_mode):
         await call_groq_structured(None, "sys", prompt, GeneratedQuestionsOutput)
 
 
+async def test_mock_questions_remain_unique_for_repeated_sentences(mock_mode):
+    context = (
+        "Panas matahari membuat air laut menguap menjadi uap air. "
+        "Uap air kemudian naik ke langit dan menjadi dingin. "
+    ) * 4
+    prompt = load_prompt("generate_questions").format(num_questions=5, context=context)
+    result = await call_groq_structured(None, "sys", prompt, GeneratedQuestionsOutput)
+    assert len(result.questions) == 5
+    assert len({" ".join(q.question_text.split()).casefold() for q in result.questions}) == 5
+    for question in result.questions:
+        assert question.correct_answer in question.options
+        assert question.correct_answer.casefold() in context.casefold()
+        assert len({option.casefold() for option in question.options}) == 4
+
+
+async def test_mock_explains_when_source_cannot_supply_enough_unique_questions(mock_mode):
+    context = "Air baik untuk kita dan tubuh manusia. " * 5
+    prompt = load_prompt("generate_questions").format(num_questions=5, context=context)
+    with pytest.raises(MockLlmError, match="5 soal berbeda"):
+        await call_groq_structured(None, "sys", prompt, GeneratedQuestionsOutput)
+
+
 LESSON_CONTEXT = (
     "Siklus Air\n"
     "Air di bumi selalu berputar dari tempat yang satu ke tempat yang lain. "

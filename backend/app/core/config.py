@@ -41,8 +41,10 @@ class Settings(BaseSettings):
             if len(self.jwt_secret.encode()) < 32 or "change-me" in self.jwt_secret.lower():
                 raise ValueError("Production requires a random JWT_SECRET of at least 32 bytes")
             password = unquote(urlsplit(self.database_url).password or "")
+            # Keep legacy sample credentials rejected after the rename.
             if not password or password.casefold() in {
                 "edumap",
+                "petapintar",
                 "password",
                 "postgres",
                 "changeme",

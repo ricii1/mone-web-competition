@@ -2,13 +2,13 @@
 
 Panduan untuk coding agent (dan anggota tim) yang bekerja di repo ini. Baca seluruh file ini sebelum mengubah kode. Jika instruksi di sini bertentangan dengan permintaan di task, ikuti task tetapi sebutkan konfliknya.
 
-> Nama proyek masih sementara: **EduMap**. Ganti semua kemunculan `EduMap` / `edumap` saat nama final sudah ditentukan.
+> Nama final proyek: **Peta Pintar**. Gunakan `Peta Pintar` untuk branding dan `petapintar` untuk identifier baru.
 
 ---
 
 ## 1. Ringkasan proyek
 
-EduMap adalah platform web pembelajaran untuk lomba *"Innovating Education Through Technology"*.
+Peta Pintar adalah platform web pembelajaran untuk lomba *"Innovating Education Through Technology"*.
 
 - **Guru** membuat *class* (public/private), mengunggah materi PDF.
 - Sistem memproses PDF dengan **RAG** dan menghasilkan **peta level** bergaya game (graph).
@@ -319,7 +319,7 @@ Wajib ada test `pytest` untuk:
 - Live class: skor dan bonus kecepatan, penolakan jawaban terlambat/ganda, jawaban benar tidak bocor sebelum soal ditutup.
 - Leaderboard Redis bisa dibangun ulang dari Postgres dan hasilnya sama.
 
-Test memakai database terpisah `edumap_test` (dibuat otomatis di server Postgres yang sama) supaya data development tidak terhapus. Test yang menegaskan perilaku lama harus diganti dengan test untuk aturan baru, bukan dilemahkan (contoh: akun ganda guru+murid).
+Test memakai database terpisah `<nama_database>_test` (default baru `petapintar_test`, dibuat otomatis di server Postgres yang sama) supaya data development tidak terhapus. Test yang menegaskan perilaku lama harus diganti dengan test untuk aturan baru, bukan dilemahkan (contoh: akun ganda guru+murid).
 
 Dalam test, **mock Groq dan model embedding**; test tidak boleh memanggil jaringan atau mengunduh model. Gunakan `fakeredis` atau Redis dari Docker khusus test; jangan memakai Redis development. Job `arq` diuji dengan memanggil fungsi job langsung. Test UI tidak wajib.
 

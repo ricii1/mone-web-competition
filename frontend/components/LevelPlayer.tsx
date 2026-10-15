@@ -67,7 +67,10 @@ function ReadingProgress() {
       const doc = document.documentElement;
       const max = doc.scrollHeight - window.innerHeight;
       const ratio = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
-      if (barRef.current) barRef.current.style.transform = `scaleX(${ratio})`;
+      if (barRef.current) {
+        barRef.current.style.transform = `scaleX(${ratio})`;
+        barRef.current.parentElement?.setAttribute("aria-valuenow", String(Math.round(ratio * 100)));
+      }
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(update);
@@ -85,6 +88,7 @@ function ReadingProgress() {
     <div
       role="progressbar"
       aria-label="Progres membaca"
+      aria-valuenow={0}
       aria-valuemin={0}
       aria-valuemax={100}
       className="fixed inset-x-0 top-0 z-40 h-1.5 bg-transparent"

@@ -157,46 +157,51 @@ def _lesson(context: str) -> GeneratedLevelLesson:
 
 
 def _questions(context: str, num_questions: int) -> GeneratedQuestionsOutput:
-    sentences = _sentences(context)
+    sentences = list(dict.fromkeys(_sentences(context)))
     if not sentences:
         raise MockLlmError("Konteks terlalu pendek untuk dibuatkan soal")
     pool = sorted({w.lower() for w in _words(context)})
-
+    candidates = [
+        sorted(set(_words(sentence)), key=lambda word: (-len(word), word)) for sentence in sentences
+    ]
     questions = []
-    for index in range(num_questions):
-        sentence = sentences[index % len(sentences)]
-        candidates = _words(sentence)
-        if not candidates:
-            continue
-        # Different question per pass over the same sentence: rotate the blanked word.
-        target = sorted(candidates, key=len, reverse=True)[
-            (index // len(sentences)) % len(candidates)
-        ]
-        rng = random.Random(f"{sentence}:{index}")
-        in_sentence = {w.lower() for w in _words(sentence)}
-        # Prefer words that are not visible in the question itself, so the blank is not guessable.
-        distractors = [w for w in pool if w not in in_sentence] or [
-            w for w in pool if w != target.lower()
-        ]
-        rng.shuffle(distractors)
-        options = [target] + distractors[:3]
-        for filler in FILLER_OPTIONS:
-            if len(options) >= 4:
-                break
-            options.append(filler)
-        rng.shuffle(options)
-        blanked = re.sub(rf"\b{re.escape(target)}\b", "_____", sentence, count=1)
-        questions.append(
-            {
-                "question_text": f"Lengkapi kalimat berikut sesuai materi: {blanked}",
-                "options": options,
-                "correct_answer": target,
-                "explanation": f'Sesuai materi: "{sentence}"',
-            }
-        )
-    if not questions:
-        raise MockLlmError("Konteks tidak cukup untuk membuat soal")
-    return GeneratedQuestionsOutput.model_validate({"questions": questions})
+    seen = set()
+    for target_index in range(max(map(len, candidates), default=0)):
+        for sentence, words in zip(sentences, candidates, strict=True):
+            if target_index >= len(words):
+                continue
+            target = words[target_index]
+            blanked = re.sub(rf"\b{re.escape(target)}\b", "_____", sentence, count=1)
+            normalized = " ".join(blanked.split()).casefold()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            rng = random.Random(f"{sentence}:{target}")
+            in_sentence = {w.lower() for w in _words(sentence)}
+            distractors = [w for w in pool if w not in in_sentence] or [
+                w for w in pool if w != target.lower()
+            ]
+            rng.shuffle(distractors)
+            options = [target] + distractors[:3]
+            for filler in FILLER_OPTIONS:
+                if len(options) >= 4:
+                    break
+                options.append(filler)
+            rng.shuffle(options)
+            questions.append(
+                {
+                    "question_text": f"Lengkapi kalimat berikut sesuai materi: {blanked}",
+                    "options": options,
+                    "correct_answer": target,
+                    "explanation": f'Sesuai materi: "{sentence}"',
+                }
+            )
+            if len(questions) == num_questions:
+                return GeneratedQuestionsOutput.model_validate({"questions": questions})
+    raise MockLlmError(
+        f"Materi sumber belum cukup untuk membuat {num_questions} soal berbeda. "
+        "Tambahkan penjelasan pada materi lalu coba lagi"
+    )
 
 
 def _source_notes(context: str) -> GeneratedSourceNotes:

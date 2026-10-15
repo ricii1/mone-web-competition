@@ -1,9 +1,9 @@
-# Deployment EduMap di Dokploy
+# Deployment Peta Pintar di Dokploy
 
 Panduan ini mengikuti alur `panduan cara deploy di dokploy.pdf`: login,
 hubungkan Git, pilih repository/branch, simpan, Deploy, periksa Deployments,
 lalu buka Domains. **Perbedaannya ada pada jenis service:** contoh PDF memakai
-Application + Nixpacks untuk Next.js saja. EduMap memakai **Docker Compose**
+Application + Nixpacks untuk Next.js saja. Peta Pintar memakai **Docker Compose**
 karena API Python, worker arq, PostgreSQL + pgvector, dan Redis juga harus berjalan.
 Stack, relasi database, dan alur aplikasi tidak berubah.
 
@@ -27,7 +27,7 @@ Pengaturan **General**:
 | Isian | Nilai |
 |---|---|
 | Provider/account | Akun Git yang sudah dihubungkan |
-| Repository | Repository EduMap |
+| Repository | Repository Peta Pintar |
 | Branch | Branch yang berisi perubahan siap deploy |
 | Compose Path | `./docker-compose.dokploy.yml` |
 | Build Path, jika tersedia | `/` (root repository) |

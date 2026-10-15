@@ -8,7 +8,7 @@ x-backend-build: &backend-build
 
 x-backend-env: &backend-env
   APP_ENV: production
-  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-edumap}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-edumap}
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-petapintar}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-petapintar}
   REDIS_URL: redis://redis:6379/0
   JWT_SECRET: ${JWT_SECRET:?Set a random JWT_SECRET of at least 32 bytes}
   JWT_EXPIRES_MINUTES: ${JWT_EXPIRES_MINUTES:-1440}
@@ -20,9 +20,9 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-edumap}
+      POSTGRES_USER: ${POSTGRES_USER:-petapintar}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-edumap}
+      POSTGRES_DB: ${POSTGRES_DB:-petapintar}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

@@ -2,14 +2,17 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.class_ import Class, GenerationStatus
 from app.models.level import Level, LevelChunk, LevelStatus
+from app.models.live_session import LiveSession
 from app.models.material import Material, MaterialChunk, VectorStatus
 from app.models.progress import Attempt, Progress
 from app.models.question import Question, QuestionStatus
 from app.schemas.level import LevelResponse, LevelSourceResponse, LevelUpdateRequest
+from app.schemas.question import validate_question_options
 
 LEVELS_PER_BOSS = 4
 QUESTIONS_PER_LEVEL = 5
@@ -61,7 +64,33 @@ def get_level_or_404(db: Session, level_id: UUID) -> Level:
     return level
 
 
+def _lock_level(db: Session, level: Level) -> None:
+    # One class lock serializes graph edits, including concurrent cycle creation.
+    db.query(Class).filter(Class.id == level.class_id).with_for_update().one()
+    db.refresh(level, with_for_update=True)
+
+
+def _validate_prerequisite(db: Session, level: Level, prerequisite_id: UUID) -> None:
+    parents = dict(
+        db.query(Level.id, Level.prerequisite_id).filter(Level.class_id == level.class_id).all()
+    )
+    if prerequisite_id not in parents:
+        raise HTTPException(status_code=422, detail="Prasyarat harus berasal dari kelas yang sama")
+    visited = {level.id}
+    current = prerequisite_id
+    while current is not None:
+        if current in visited:
+            raise HTTPException(status_code=422, detail="Prasyarat tidak boleh membentuk lingkaran")
+        visited.add(current)
+        if current not in parents:
+            raise HTTPException(status_code=422, detail="Rantai prasyarat kelas tidak valid")
+        current = parents[current]
+
+
 def update_level(db: Session, level: Level, body: LevelUpdateRequest) -> Level:
+    _lock_level(db, level)
+    if body.prerequisite_id is not None and not body.clear_prerequisite:
+        _validate_prerequisite(db, level, body.prerequisite_id)
     if body.title is not None:
         level.title = body.title
     if body.order_index is not None:
@@ -99,23 +128,62 @@ def _has_approved_question(db: Session, level_id: UUID) -> bool:
 
 
 def delete_level(db: Session, level: Level) -> None:
-    db.query(Question).filter(Question.level_id == level.id).delete()
-    db.query(LevelChunk).filter(LevelChunk.level_id == level.id).delete()
-    db.delete(level)
-    db.commit()
+    _lock_level(db, level)
+    if level.prerequisite_id is not None:
+        try:
+            _validate_prerequisite(db, level, level.prerequisite_id)
+        except HTTPException as exc:
+            raise HTTPException(
+                status_code=409, detail="Perbaiki rantai prasyarat sebelum menghapus level"
+            ) from exc
+    questions = db.query(Question).filter(Question.level_id == level.id).with_for_update().all()
+    question_ids = [question.id for question in questions]
+    used = (
+        db.query(Progress.id).filter(Progress.level_id == level.id).first()
+        or db.query(Attempt.id).filter(Attempt.question_id.in_(question_ids)).first()
+        or db.query(LiveSession.id).filter(LiveSession.level_id == level.id).first()
+    )
+    if used:
+        raise HTTPException(
+            status_code=409, detail="Level sudah digunakan. Riwayat belajar tidak boleh dihapus"
+        )
+    dependents = db.query(Level).filter(Level.prerequisite_id == level.id).all()
+    if any(dependent.class_id != level.class_id for dependent in dependents):
+        raise HTTPException(
+            status_code=409, detail="Ada prasyarat lintas kelas yang perlu diperbaiki"
+        )
+    try:
+        for dependent in dependents:
+            dependent.prerequisite_id = level.prerequisite_id
+        db.flush()
+        db.query(Question).filter(Question.level_id == level.id).delete()
+        db.query(LevelChunk).filter(LevelChunk.level_id == level.id).delete()
+        db.delete(level)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409, detail="Level sedang digunakan dan tidak bisa dihapus"
+        ) from exc
 
 
 def class_publish_blockers(db: Session, class_id: UUID) -> list[str]:
     """Report levels whose lessons or quiz questions have not been approved."""
     levels = list_levels_for_class(db, class_id)
-    approved_ids = {
-        row[0]
-        for row in db.query(Question.level_id)
+    approved_questions = (
+        db.query(Question)
         .join(Level, Level.id == Question.level_id)
         .filter(Level.class_id == class_id, Question.status == QuestionStatus.approved)
-        .distinct()
         .all()
-    }
+    )
+    approved_ids = set()
+    invalid_ids = set()
+    for question in approved_questions:
+        approved_ids.add(question.level_id)
+        try:
+            validate_question_options(question.options, question.correct_answer)
+        except ValueError:
+            invalid_ids.add(question.level_id)
     blockers = []
     for level in levels:
         reasons = []
@@ -123,6 +191,8 @@ def class_publish_blockers(db: Session, class_id: UUID) -> list[str]:
             reasons.append("materi belum disetujui")
         if level.id not in approved_ids:
             reasons.append("belum punya soal yang disetujui")
+        if level.id in invalid_ids:
+            reasons.append("pilihan atau jawaban soal perlu diperbaiki")
         if reasons:
             blockers.append(f"{level.title} ({'; '.join(reasons)})")
     return blockers

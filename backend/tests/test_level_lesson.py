@@ -174,6 +174,11 @@ def test_student_question_list_hides_correct_answer(client, db):
     body = resp.json()
     assert len(body) == 1
     assert "correct_answer" not in body[0]
+    assert "explanation" not in body[0]
+    teacher = db.get(User, cls.teacher_id)
+    teacher_body = client.get(f"/api/v1/levels/{level.id}/questions", headers=_auth(teacher)).json()
+    assert teacher_body[0]["explanation"] == "Karena B."
+    assert teacher_body[0]["correct_answer"] == "B"
 
 
 def test_submit_returns_per_question_results(client, db):

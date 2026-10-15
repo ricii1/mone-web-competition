@@ -53,7 +53,7 @@ export default function AuthHero({ tagline }: { tagline: string }) {
             <path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.1l-5.6 3.1 1.1-6.3L2.9 9.5l6.3-.9z" />
           </svg>
         </span>
-        EduMap
+        Peta Pintar
       </p>
 
       <div className="relative flex flex-col items-center gap-1" aria-hidden="true">

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the EduMap API with uvicorn (native/conda setup, see README.md).
+# Run the Peta Pintar API with uvicorn (native/conda setup, see README.md).
 #
 # Usage: ./run-uvicorn.sh            # reload mode on 127.0.0.1:8000
 #        PORT=8010 ./run-uvicorn.sh  # other port
@@ -12,7 +12,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-8000}"
 RELOAD="${RELOAD:-1}"
-CONDA_ENV="${CONDA_ENV:-edumap}"
+CONDA_ENV="${CONDA_ENV:-petapintar}"
 
 # Activate the conda env (works even when conda is not initialised in this shell).
 if ! command -v conda >/dev/null 2>&1; then
@@ -47,5 +47,5 @@ if [ "$RELOAD" = "1" ]; then
   ARGS+=(--reload --timeout-graceful-shutdown 2)
 fi
 
-echo "EduMap API: http://$HOST:$PORT  (docs: http://$HOST:$PORT/docs)"
+echo "Peta Pintar API: http://$HOST:$PORT  (docs: http://$HOST:$PORT/docs)"
 exec uvicorn "${ARGS[@]}"

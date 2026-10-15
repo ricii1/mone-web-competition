@@ -30,6 +30,7 @@ export default function LeaderboardPage() {
 
   const load = useCallback(async () => {
     setEntries(await api.getLeaderboard(classId));
+    setError(null);
   }, [classId]);
 
   useEffect(() => {

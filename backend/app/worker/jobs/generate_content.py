@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -26,6 +27,15 @@ from app.services.level_service import (
     has_approved_level,
 )
 
+logger = logging.getLogger(__name__)
+
+
+async def _notify(class_id: UUID, event: RealtimeEvent) -> None:
+    try:
+        await publish_event(class_channel(class_id), event)
+    except Exception:
+        logger.exception("Generation notification failed: %s (%s)", class_id, event.type)
+
 
 async def _publish_stage(
     class_id: str, stage: str, current: int, total: int, error_message: str | None = None
@@ -37,8 +47,8 @@ async def _publish_stage(
         total=total,
         error_message=error_message,
     )
-    await publish_event(
-        class_channel(UUID(class_id)),
+    await _notify(
+        UUID(class_id),
         RealtimeEvent(type="generation_progress", payload=payload.model_dump()),
     )
 
@@ -168,8 +178,8 @@ async def generate_levels_and_questions(
             db.add(LevelChunk(level_id=level.id, chunk_id=chunk.id))
             db.commit()
 
-            await publish_event(
-                class_channel(class_id_uuid),
+            await _notify(
+                class_id_uuid,
                 RealtimeEvent(
                     type="level_created",
                     payload=LevelCreatedPayload(
@@ -209,8 +219,8 @@ async def generate_levels_and_questions(
                     db.add(LevelChunk(level_id=boss_level.id, chunk_id=c.id))
                 db.commit()
 
-                await publish_event(
-                    class_channel(class_id_uuid),
+                await _notify(
+                    class_id_uuid,
                     RealtimeEvent(
                         type="level_created",
                         payload=LevelCreatedPayload(

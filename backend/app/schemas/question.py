@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.models.question import QuestionStatus, QuestionType
 
@@ -11,7 +11,6 @@ class QuestionResponse(BaseModel):
     question_text: str
     question_type: QuestionType
     options: list[str]
-    explanation: str | None
     status: QuestionStatus
 
     model_config = {"from_attributes": True}
@@ -19,6 +18,17 @@ class QuestionResponse(BaseModel):
 
 class QuestionTeacherResponse(QuestionResponse):
     correct_answer: str
+    explanation: str | None
+
+
+def validate_question_options(options: list[str], correct_answer: str) -> None:
+    normalized = ["".join(option.split()).casefold() for option in options]
+    if len(options) != 4 or any(not option for option in normalized):
+        raise ValueError("Soal harus memiliki empat pilihan jawaban yang tidak kosong")
+    if len(set(normalized)) != 4:
+        raise ValueError("Pilihan jawaban tidak boleh sama")
+    if correct_answer not in options:
+        raise ValueError("Jawaban benar harus ada dalam pilihan jawaban")
 
 
 class QuestionCreateRequest(BaseModel):
@@ -26,6 +36,11 @@ class QuestionCreateRequest(BaseModel):
     options: list[str]
     correct_answer: str
     explanation: str | None = None
+
+    @model_validator(mode="after")
+    def validate_options(self) -> "QuestionCreateRequest":
+        validate_question_options(self.options, self.correct_answer)
+        return self
 
 
 class QuestionUpdateRequest(BaseModel):

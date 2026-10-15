@@ -7,7 +7,7 @@ import Mascot from "@/components/Mascot";
 
 const TAGLINES: Record<string, string> = {
   "/login": "Ayo belajar sambil bermain. Selesaikan level, kumpulkan bintang!",
-  "/register": "Buat akunmu dan mulai petualangan belajar bersama EduMap.",
+  "/register": "Buat akunmu dan mulai petualangan belajar bersama Peta Pintar.",
 };
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="mb-6 flex items-center gap-3 md:hidden">
             <Mascot mood="happy" size={72} className="shrink-0" />
             <div>
-              <p className="font-display text-2xl font-extrabold">EduMap</p>
+              <p className="font-display text-2xl font-extrabold">Peta Pintar</p>
               <p className="text-base leading-snug text-ink/75">{tagline}</p>
             </div>
           </div>

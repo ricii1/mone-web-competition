@@ -1,4 +1,4 @@
-FROM node:20-slim AS development
+FROM node:24-slim AS development
 
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -13,7 +13,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 RUN mkdir -p public && npm run build
 
-FROM node:20-slim AS production
+FROM node:24-slim AS production
 WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0

@@ -22,6 +22,8 @@ async def generate_levels(
 ) -> dict[str, str]:
     cls = class_service.get_class_or_404(db, class_id)
     class_service.require_owner(cls, teacher)
+    if cls.is_example:
+        raise HTTPException(status_code=400, detail="Class contoh tidak bisa digenerate")
 
     try:
         pool = await get_arq_pool()

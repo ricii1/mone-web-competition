@@ -26,12 +26,13 @@ def test_production_accepts_long_secret():
     assert config.app_env == "production"
 
 
-def test_production_rejects_example_database_password():
+@pytest.mark.parametrize("password", ["edumap", "petapintar"])
+def test_production_rejects_example_database_password(password):
     with pytest.raises(ValidationError):
         Settings(
             _env_file=None,
             app_env="production",
-            database_url="postgresql://app:edumap@db/app",
+            database_url=f"postgresql://app:{password}@db/app",
             redis_url="redis://localhost",
             jwt_secret="a" * 64,
         )

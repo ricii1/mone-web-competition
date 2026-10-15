@@ -53,6 +53,8 @@ export default function TeacherClassPage() {
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailures, setLoadFailures] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadClass = useCallback(async () => {
     setCls(await api.getClass(classId));
@@ -66,15 +68,18 @@ export default function TeacherClassPage() {
     setLevels(await api.listLevels(classId));
   }, [classId]);
 
-  const refreshAll = useCallback(() => {
-    loadClass().catch(() => {});
-    loadMaterials().catch(() => {});
-    loadLevels().catch(() => {});
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    const results = await Promise.allSettled([loadClass(), loadMaterials(), loadLevels()]);
+    const labels = ["kelas", "materi PDF", "level"];
+    setLoadFailures(results.flatMap((result, index) => result.status === "rejected" ? [labels[index]] : []));
+    setLoaded(true);
+    setRefreshing(false);
   }, [loadClass, loadMaterials, loadLevels]);
 
   useEffect(() => {
-    Promise.allSettled([loadClass(), loadMaterials(), loadLevels()]).then(() => setLoaded(true));
-  }, [loadClass, loadMaterials, loadLevels]);
+    void refreshAll();
+  }, [refreshAll]);
 
   const generating = cls?.generation_status === "generating";
 
@@ -93,8 +98,7 @@ export default function TeacherClassPage() {
           setProgress(event.payload);
           refreshAll();
         } else if (event.type === "material_progress" || event.type === "level_created") {
-          loadMaterials().catch(() => {});
-          loadLevels().catch(() => {});
+          void refreshAll();
         }
       },
       refreshAll
@@ -154,6 +158,7 @@ export default function TeacherClassPage() {
 
   const readyMaterials = materials.some((m) => m.vector_status === "ready");
   const busy = generating || starting;
+  const dataReady = loaded && !refreshing && loadFailures.length === 0 && cls !== null;
   const pendingReviews = levels.filter((level) => level.status !== "approved").length;
   const failedMessage =
     cls?.generation_status === "failed"
@@ -168,7 +173,7 @@ export default function TeacherClassPage() {
   return (
     <PageShell
       back={{ href: "/teacher", label: "Kembali ke daftar kelas" }}
-      title={cls?.title ?? "Memuat..."}
+      title={cls?.title ?? (loaded ? "Kelas belum bisa dimuat" : "Memuat...")}
       icon={<FlagIcon size={28} />}
       subtitle={
         cls && (
@@ -193,7 +198,7 @@ export default function TeacherClassPage() {
             Kuis bersama
           </Link>
           {!cls?.is_example && (
-            <button onClick={handlePublish} disabled={cls?.status === "published" || !loaded || busy || pendingReviews > 0} className="btn-primary">
+            <button onClick={handlePublish} disabled={cls?.status === "published" || !dataReady || busy || pendingReviews > 0} className="btn-primary">
               <SparklesIcon size={22} />
               {cls?.status === "published" ? "Sudah terbit" : "Terbitkan kelas"}
             </button>
@@ -201,6 +206,14 @@ export default function TeacherClassPage() {
         </>
       }
     >
+      {loadFailures.length > 0 && (
+        <div role="alert" className="note mb-4 flex-wrap border-coral bg-coral-soft text-alert">
+          <p>Data {loadFailures.join(", ")} belum bisa dimuat. Coba muat lagi sebelum melanjutkan.</p>
+          <button type="button" className="btn-ghost" disabled={refreshing} onClick={() => void refreshAll()}>
+            {refreshing ? "Memuat..." : "Coba lagi"}
+          </button>
+        </div>
+      )}
       {cls?.is_example && (
         <p className="mb-4 rounded-2xl border-2 border-highlight bg-highlight/20 p-3">{cls.description}</p>
       )}
@@ -227,8 +240,9 @@ export default function TeacherClassPage() {
                 type="file"
                 accept="application/pdf"
                 onChange={handleUpload}
-                disabled={uploading}
-                className="hidden"
+                disabled={uploading || !dataReady}
+                className="sr-only"
+                aria-label="Unggah PDF"
               />
             </label>
             <ul className="mt-4 flex flex-col gap-2">
@@ -242,7 +256,7 @@ export default function TeacherClassPage() {
                   {m.error_message && <span className="w-full text-alert">{m.error_message}</span>}
                 </li>
               ))}
-              {materials.length === 0 && <li className="text-ink/75">Belum ada materi. Unggah PDF pertamamu.</li>}
+              {!loaded ? <li role="status">Memuat materi...</li> : loadFailures.includes("materi PDF") ? <li>Daftar materi belum tersedia.</li> : materials.length === 0 && <li className="text-ink/75">Belum ada materi. Unggah PDF pertamamu.</li>}
             </ul>
           </section>
 
@@ -251,7 +265,7 @@ export default function TeacherClassPage() {
               <h2 className="flex items-center gap-2 text-2xl"><RocketIcon size={26} />Level dan soal</h2>
               <button
                 onClick={handleGenerateClick}
-                disabled={busy || !readyMaterials}
+                disabled={!dataReady || busy || !readyMaterials}
                 className="btn-primary btn-sm"
               >
                 {busy ? "Memproses..." : levels.length > 0 ? "Buat ulang" : "Buat level"}
@@ -297,7 +311,7 @@ export default function TeacherClassPage() {
                 <p className="mb-2 text-alert">{failedMessage}</p>
                 <button
                   onClick={() => handleGenerate()}
-                  disabled={!readyMaterials}
+                  disabled={!dataReady || !readyMaterials}
                   className="btn-ghost btn-sm"
                 >
                   Coba lagi
@@ -310,7 +324,7 @@ export default function TeacherClassPage() {
                   <li key={l.id}>
                     <Link
                       href={`/teacher/classes/${classId}/levels/${l.id}`}
-                      className="flex min-h-[44px] items-center justify-between gap-2 rounded-2xl px-3 py-2 hover:bg-sky-soft"
+                      className="flex min-h-[48px] items-center justify-between gap-2 rounded-2xl px-3 py-2 hover:bg-sky-soft"
                     >
                       <span>
                         {l.order_index + 1}. {l.title}
@@ -333,6 +347,8 @@ export default function TeacherClassPage() {
           <h2 className="mb-3 flex items-center gap-2 text-2xl"><MapIcon size={26} />Peta level</h2>
           {!loaded ? (
             <p role="status" className="text-ink/75">Memuat level...</p>
+          ) : loadFailures.includes("level") ? (
+            <p>Daftar level belum tersedia. Ketuk Coba lagi untuk memuatnya.</p>
           ) : levels.length === 0 ? (
             <p className="rounded-2xl border-2 border-dashed border-rule p-10 text-center text-ink/75">
               {busy ? "Level akan muncul satu per satu di sini." : "Belum ada level."}
@@ -347,7 +363,7 @@ export default function TeacherClassPage() {
           )}
         </section>
       </div>
-      {cls && <DeleteClass classId={classId} title={cls.title} disabled={!loaded || busy || uploading || materials.some((m) => m.vector_status === "pending" || m.vector_status === "processing")} />}
+      {cls && <DeleteClass classId={classId} title={cls.title} disabled={!dataReady || busy || uploading || materials.some((m) => m.vector_status === "pending" || m.vector_status === "processing")} />}
     </PageShell>
   );
 }

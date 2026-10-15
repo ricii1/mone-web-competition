@@ -1,4 +1,4 @@
-# Solusi backlog EduMap
+# Solusi backlog Peta Pintar
 
 Tanggal: 11 Oktober 2026. Tinjauan kode, tanpa perubahan perilaku aplikasi. Audit keamanan dan infrastruktur ada di [devops-audit.md](devops-audit.md).
 

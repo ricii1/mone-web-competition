@@ -15,7 +15,7 @@ from app.core.body_limit import BodyLimitMiddleware
 from app.core.config import settings
 from app.realtime import ws
 
-app = FastAPI(title="EduMap API")
+app = FastAPI(title="Peta Pintar API")
 
 app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(

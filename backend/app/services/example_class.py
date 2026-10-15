@@ -6,7 +6,7 @@ rest are drafts waiting for the teacher. Content is hand-written (no real PDF). 
 and its chunks are fake: embeddings are zero vectors, which is fine because the example class
 can never be generated or published, so nothing ever retrieves from them.
 
-`BIOLOGY_LEVELS` is only demo data for the seeded public student/leaderboard class.
+`ELEMENTARY_LEVELS` reuses these SD lessons for the seeded public student class.
 """
 
 import re
@@ -30,185 +30,17 @@ EXAMPLE_DESCRIPTION = (
 )
 
 # (title, type, summary, key_points, [(question, options, correct index, explanation)])
-BIOLOGY_LEVELS = [
+ELEMENTARY_LEVELS = [
+    (spec["title"], LevelType.lesson_quiz, spec["summary"], spec["key_points"], spec["questions"])
+    for spec in LESSONS
+] + [
     (
-        "Pengenalan Sel",
-        LevelType.lesson_quiz,
-        "Sel adalah unit struktural dan fungsional terkecil makhluk hidup. Sel prokariotik "
-        "tidak memiliki membran inti, sedangkan sel eukariotik memilikinya.",
-        [
-            "Sel adalah unit struktural dan fungsional terkecil makhluk hidup.",
-            "Sel prokariotik tidak memiliki membran inti.",
-            "Sel eukariotik memiliki membran inti.",
-        ],
-        [
-            (
-                "Apa unit struktural dan fungsional terkecil makhluk hidup?",
-                ["Jaringan", "Sel", "Organ", "Molekul"],
-                1,
-                "Sel adalah unit terkecil kehidupan.",
-            ),
-            (
-                "Ciri utama sel prokariotik adalah...",
-                [
-                    "Memiliki inti sel",
-                    "Tidak memiliki membran inti",
-                    "Memiliki mitokondria",
-                    "Selalu multiseluler",
-                ],
-                1,
-                "Prokariotik tidak punya membran inti.",
-            ),
-            (
-                "Contoh organisme prokariotik adalah...",
-                ["Bakteri", "Jamur", "Amoeba", "Paku"],
-                0,
-                "Bakteri adalah prokariotik.",
-            ),
-            (
-                "Siapa yang pertama kali mengamati sel pada irisan gabus?",
-                ["Robert Hooke", "Louis Pasteur", "Mendel", "Darwin"],
-                0,
-                "Robert Hooke mengamati sel gabus pada 1665.",
-            ),
-            (
-                "Sel eukariotik memiliki...",
-                ["Hanya DNA bebas", "Membran inti", "Tidak ada organel", "Hanya satu ribosom"],
-                1,
-                "Eukariotik punya inti sel dengan membran.",
-            ),
-        ],
-    ),
-    (
-        "Organel Sel",
-        LevelType.lesson_quiz,
-        "Organel menjalankan fungsi khusus: mitokondria menghasilkan energi, ribosom membuat "
-        "protein, dan kloroplas melakukan fotosintesis pada sel tumbuhan.",
-        [
-            "Organel menjalankan fungsi khusus di dalam sel.",
-            "Mitokondria menghasilkan energi.",
-            "Ribosom membuat protein.",
-            "Kloroplas melakukan fotosintesis pada sel tumbuhan.",
-        ],
-        [
-            (
-                "Organel penghasil energi (ATP) adalah...",
-                ["Ribosom", "Mitokondria", "Lisosom", "Vakuola"],
-                1,
-                "Mitokondria: respirasi sel.",
-            ),
-            (
-                "Tempat sintesis protein adalah...",
-                ["Ribosom", "Nukleus", "Kloroplas", "Golgi"],
-                0,
-                "Ribosom merakit protein.",
-            ),
-            (
-                "Organel fotosintesis pada tumbuhan adalah...",
-                ["Mitokondria", "Kloroplas", "Lisosom", "Sentriol"],
-                1,
-                "Kloroplas berklorofil.",
-            ),
-            (
-                "Organel pencernaan intrasel adalah...",
-                ["Lisosom", "Ribosom", "Nukleolus", "Kloroplas"],
-                0,
-                "Lisosom berisi enzim.",
-            ),
-            (
-                "Pusat pengatur aktivitas sel adalah...",
-                ["Vakuola", "Nukleus", "Membran sel", "Sitoplasma"],
-                1,
-                "Nukleus menyimpan DNA.",
-            ),
-        ],
-    ),
-    (
-        "Membran dan Transpor",
-        LevelType.lesson_quiz,
-        "Membran sel bersifat selektif permeabel. Difusi dan osmosis berjalan tanpa energi, "
-        "sedangkan transpor aktif memerlukan energi.",
-        [
-            "Membran sel bersifat selektif permeabel.",
-            "Difusi berjalan tanpa energi.",
-            "Osmosis berjalan tanpa energi.",
-            "Transpor aktif memerlukan energi.",
-        ],
-        [
-            (
-                "Perpindahan zat dari konsentrasi tinggi ke rendah disebut...",
-                ["Difusi", "Transpor aktif", "Endositosis", "Eksositosis"],
-                0,
-                "Difusi mengikuti gradien konsentrasi.",
-            ),
-            (
-                "Osmosis adalah perpindahan...",
-                ["Ion", "Air", "Protein", "Glukosa saja"],
-                1,
-                "Osmosis: difusi air.",
-            ),
-            (
-                "Transpor aktif memerlukan...",
-                ["Energi (ATP)", "Cahaya", "Tekanan udara", "Tidak ada"],
-                0,
-                "Melawan gradien.",
-            ),
-            (
-                "Sifat membran sel adalah...",
-                ["Impermeabel", "Selektif permeabel", "Permeabel penuh", "Kaku"],
-                1,
-                "Hanya zat tertentu yang lewat.",
-            ),
-            (
-                "Larutan hipertonik membuat sel hewan...",
-                ["Mengembang", "Mengerut", "Tetap", "Membelah"],
-                1,
-                "Air keluar dari sel.",
-            ),
-        ],
-    ),
-    (
-        "Boss: Biologi Sel",
+        BOSS_LEVEL["title"],
         LevelType.boss,
-        "Gabungan materi pengenalan sel, organel, dan transpor membran.",
-        [
-            "Sel prokariotik tidak punya membran inti, sel eukariotik punya.",
-            "Mitokondria menghasilkan energi, ribosom membuat protein, kloroplas berfotosintesis.",
-            "Difusi dan osmosis tanpa energi, transpor aktif memerlukan energi.",
-        ],
-        [
-            (
-                "Organel yang disebut 'pembangkit tenaga' sel adalah...",
-                ["Mitokondria", "Ribosom", "Lisosom", "Golgi"],
-                0,
-                "Mitokondria menghasilkan ATP.",
-            ),
-            (
-                "Sel tanpa membran inti disebut...",
-                ["Eukariotik", "Prokariotik", "Hewan", "Tumbuhan"],
-                1,
-                "Prokariotik.",
-            ),
-            (
-                "Air berpindah melalui membran dengan cara...",
-                ["Osmosis", "Fotosintesis", "Fisi", "Mitosis"],
-                0,
-                "Osmosis.",
-            ),
-            (
-                "Fotosintesis terjadi di...",
-                ["Kloroplas", "Mitokondria", "Nukleus", "Lisosom"],
-                0,
-                "Kloroplas.",
-            ),
-            (
-                "Pengiriman zat melawan gradien konsentrasi disebut...",
-                ["Difusi", "Osmosis", "Transpor aktif", "Difusi terfasilitasi"],
-                2,
-                "Transpor aktif memakai ATP.",
-            ),
-        ],
-    ),
+        BOSS_LEVEL["summary"],
+        BOSS_LEVEL["key_points"],
+        BOSS_LEVEL["questions"],
+    )
 ]
 
 
@@ -337,8 +169,8 @@ def populate_example_class(db: Session, cls: Class) -> list[Level]:
             class_id=cls.id,
             section_title=spec["title"],
             content=_plain_text(spec["content"]),
-            page_start=page_start,
-            page_end=page_end,
+            page_start=page_start - 1,
+            page_end=page_end - 1,
             embedding=[0.0] * settings.embedding_dim,
         )
         db.add(chunk)

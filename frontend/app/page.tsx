@@ -24,8 +24,8 @@ import ScrollProgress from "@/components/landing/ScrollProgress";
 import Mascot from "@/components/Mascot";
 
 export const metadata: Metadata = {
-  title: "EduMap - Belajar jadi petualangan seru",
-  description: "Guru SD unggah materi PDF, EduMap menyusun peta level. Murid bermain, kumpulkan bintang, dan naik level.",
+  title: "Peta Pintar - Belajar jadi petualangan seru",
+  description: "Guru SD unggah materi PDF, Peta Pintar menyusun peta level. Murid bermain, kumpulkan bintang, dan naik level.",
 };
 
 const FEATURES = [
@@ -75,11 +75,11 @@ const STEPS = [
 
 function Logo() {
   return (
-    <span className="flex items-center gap-2 font-display text-2xl font-extrabold">
+    <span className="flex items-center gap-2 font-display text-xl font-extrabold sm:text-2xl">
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-highlight text-ink">
         <StarIcon size={22} />
       </span>
-      EduMap
+      <span className="leading-5 sm:leading-normal">Peta <span className="block sm:inline">Pintar</span></span>
     </span>
   );
 }
@@ -91,7 +91,7 @@ export default function HomePage() {
 
       <header className="sticky top-0 z-30 border-b-2 border-rule bg-paper/95 backdrop-blur">
         <nav aria-label="Menu utama" className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2 sm:px-6">
-          <Link href="/" aria-label="EduMap, halaman awal" className="inline-flex min-h-[48px] items-center">
+          <Link href="/" aria-label="Peta Pintar, halaman awal" className="inline-flex min-h-[48px] items-center">
             <Logo />
           </Link>
           <div className="flex items-center gap-2">
@@ -132,7 +132,7 @@ export default function HomePage() {
               Belajar jadi petualangan seru!
             </h1>
             <p style={{ "--d": "250ms" } as React.CSSProperties} className="rise mb-6 max-w-xl text-xl text-ink/85">
-              Guru unggah materi PDF, EduMap menyusun peta level. Murid bermain, menjawab kuis, dan mengumpulkan bintang.
+              Guru unggah materi PDF, Peta Pintar menyusun peta level. Murid bermain, menjawab kuis, dan mengumpulkan bintang.
             </p>
             <div style={{ "--d": "400ms" } as React.CSSProperties} className="rise flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link href="/register" className="btn-primary pulse-soft">

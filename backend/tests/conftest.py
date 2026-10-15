@@ -11,6 +11,18 @@ from app.db.base import Base
 from app.db.session import SessionLocal, get_db
 from app.main import app
 
+
+@pytest.fixture(autouse=True)
+def _no_real_arq_connections(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(
+        "app.worker.queue.create_pool",
+        AsyncMock(side_effect=AssertionError("Tests must mock the arq queue explicitly")),
+    )
+    monkeypatch.setattr("app.worker.queue._pool", None)
+
+
 # Tests wipe tables, so they must never run against the development database.
 _dev_url = make_url(settings.database_url)
 _test_url = _dev_url.set(database=f"{_dev_url.database}_test")

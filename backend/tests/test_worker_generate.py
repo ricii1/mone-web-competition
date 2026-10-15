@@ -348,6 +348,40 @@ async def test_cancelled_job_sets_failed(db, events, monkeypatch):
     assert cls.generation_error == "Waktu pemrosesan habis"
 
 
+@pytest.mark.parametrize("failed_stage", ["generating_levels", "level_created", "done", "all"])
+async def test_notification_failure_does_not_fail_generated_content(
+    db, events, monkeypatch, failed_stage
+):
+    cls = _setup(db, n_chunks=5)
+
+    async def failing_publish(channel, event):
+        stage = event.payload.get("stage", event.type)
+        if failed_stage in (stage, "all"):
+            raise ConnectionError("Notification unavailable")
+
+    monkeypatch.setattr(job, "publish_event", failing_publish)
+    await job.generate_levels_and_questions({}, str(cls.id))
+    db.refresh(cls)
+    assert cls.generation_status == GenerationStatus.done
+    assert cls.generation_error is None
+    levels = db.query(Level).filter_by(class_id=cls.id).all()
+    assert len(levels) == 6
+    assert db.query(Question).filter(Question.level_id.in_([lv.id for lv in levels])).count() == 30
+
+
+async def test_notification_failure_preserves_original_generation_error(db, events, monkeypatch):
+    cls = _setup(db, n_chunks=1)
+    monkeypatch.setattr(job, "publish_event", AsyncMock(side_effect=ConnectionError("pubsub down")))
+    monkeypatch.setattr(
+        job, "call_groq_structured", AsyncMock(side_effect=ValueError("Bad source"))
+    )
+    with pytest.raises(ValueError, match="Bad source"):
+        await job.generate_levels_and_questions({}, str(cls.id))
+    db.refresh(cls)
+    assert cls.generation_status == GenerationStatus.failed
+    assert cls.generation_error == "Bad source"
+
+
 async def test_stale_worker_cannot_replace_new_generation(db, events):
     cls = _setup(db, n_chunks=1)
     cls.generation_job_id = "new-job"

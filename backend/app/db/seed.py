@@ -13,46 +13,27 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.class_ import ClassStatus, ClassVisibility, Enrollment
-from app.models.level import LevelType
 from app.models.user import User, UserRole
 from app.services.example_class import (
-    BIOLOGY_LEVELS,
+    ELEMENTARY_LEVELS,
     build_class,
     create_example_class,
     has_example_class,
 )
+from app.services.example_content import LESSONS
 from app.services.leaderboard_service import rebuild_leaderboard_cache
 from app.services.progress_service import initialize_progress_for_enrollment, record_quiz_result
 
 SEED_PASSWORD = "password123"
-TEACHER_EMAIL = "guru@edumap.id"
+TEACHER_EMAIL = "guru@petapintar.id"
 STUDENTS = [
-    ("Andi Pratama", "murid1@edumap.id"),
-    ("Budi Santoso", "murid2@edumap.id"),
-    ("Citra Lestari", "murid3@edumap.id"),
-    ("Dewi Anggraini", "murid4@edumap.id"),
+    ("Andi Pratama", "murid1@petapintar.id"),
+    ("Budi Santoso", "murid2@petapintar.id"),
+    ("Citra Lestari", "murid3@petapintar.id"),
+    ("Dewi Anggraini", "murid4@petapintar.id"),
 ]
 
-DRAFT_LEVELS = [
-    (
-        "Hukum Newton",
-        LevelType.lesson_quiz,
-        "Hukum I Newton: benda diam tetap diam kecuali ada gaya luar.",
-        [
-            "Benda diam cenderung tetap diam.",
-            "Perubahan gerak hanya terjadi bila ada gaya luar.",
-            "Sifat ini disebut inersia (kelembaman).",
-        ],
-        [
-            (
-                "Hukum I Newton disebut juga hukum...",
-                ["Inersia", "Aksi-reaksi", "Gravitasi", "Kekekalan energi"],
-                0,
-                "Hukum kelembaman.",
-            ),
-        ],
-    ),
-]
+DRAFT_LEVELS = ELEMENTARY_LEVELS[:1]
 
 
 def seed(db: Session) -> bool:
@@ -74,36 +55,39 @@ def seed(db: Session) -> bool:
     db.add_all(students)
     db.flush()
 
-    biology = build_class(
+    public_levels = build_class(
         db,
         teacher,
-        title="Biologi Sel Kelas XI",
-        description="Dasar-dasar biologi sel: organel dan transpor.",
+        title="IPA Kelas 4 - Siklus Air",
+        description="Ayo mengenal penguapan, awan, hujan, dan cara menjaga air.",
         visibility=ClassVisibility.public,
         status=ClassStatus.published,
-        levels=BIOLOGY_LEVELS,
-        approved_levels=len(BIOLOGY_LEVELS),
+        levels=ELEMENTARY_LEVELS,
+        approved_levels=len(ELEMENTARY_LEVELS),
     )
-    build_class(
+    for level, spec in zip(public_levels, LESSONS, strict=False):
+        level.content = spec["content"]
+    draft_levels = build_class(
         db,
         teacher,
-        title="Fisika Dasar (Draft Privat)",
-        description="Class privat yang belum dipublish.",
+        title="IPA Kelas 4 (Draft Privat)",
+        description="Materi siklus air yang masih menunggu tinjauan guru.",
         visibility=ClassVisibility.private,
         status=ClassStatus.draft,
         levels=DRAFT_LEVELS,
         approved_levels=0,
     )
+    draft_levels[0].content = LESSONS[0]["content"]
     create_example_class(db, teacher)
 
-    biology_class_id = biology[0].class_id
+    public_class_id = public_levels[0].class_id
     for student in students:
-        db.add(Enrollment(user_id=student.id, class_id=biology_class_id))
+        db.add(Enrollment(user_id=student.id, class_id=public_class_id))
     db.commit()
     for student in students:
-        initialize_progress_for_enrollment(db, student.id, biology_class_id)
+        initialize_progress_for_enrollment(db, student.id, public_class_id)
 
-    # Scores per student per level (index into `biology`), applied through the real service
+    # Scores per student per level, applied through the real service
     # so unlock/best_score rules stay consistent.
     results = {
         0: [(0, 100), (1, 80), (2, 90), (3, 70)],
@@ -113,9 +97,9 @@ def seed(db: Session) -> bool:
     }
     for student_index, scores in results.items():
         for level_index, score in scores:
-            record_quiz_result(db, students[student_index].id, biology[level_index].id, score)
+            record_quiz_result(db, students[student_index].id, public_levels[level_index].id, score)
 
-    asyncio.run(rebuild_leaderboard_cache(db, biology_class_id))
+    asyncio.run(rebuild_leaderboard_cache(db, public_class_id))
     return True
 
 

@@ -1,4 +1,4 @@
-const TOKEN_KEY = "edumap_token";
+const TOKEN_KEY = "petapintar_token";
 
 export function saveToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);

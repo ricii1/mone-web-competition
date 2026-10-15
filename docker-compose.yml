@@ -4,7 +4,7 @@
 # .env never leak into the containers.
 
 x-backend-env: &backend-env
-  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-edumap}:${POSTGRES_PASSWORD:-edumap}@postgres:5432/${POSTGRES_DB:-edumap}
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-petapintar}:${POSTGRES_PASSWORD:-petapintar}@postgres:5432/${POSTGRES_DB:-petapintar}
   REDIS_URL: redis://redis:6379/0
   UPLOAD_DIR: /data/uploads
 
@@ -12,15 +12,15 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-edumap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-edumap}
-      POSTGRES_DB: ${POSTGRES_DB:-edumap}
+      POSTGRES_USER: ${POSTGRES_USER:-petapintar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-petapintar}
+      POSTGRES_DB: ${POSTGRES_DB:-petapintar}
     ports:
       - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-edumap}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-petapintar}"]
       interval: 5s
       timeout: 5s
       retries: 10

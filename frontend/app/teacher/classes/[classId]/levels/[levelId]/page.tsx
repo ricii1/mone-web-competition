@@ -187,6 +187,17 @@ export default function TeacherLevelPage() {
             id={`tab-${key}`}
             aria-selected={tab === key}
             aria-controls={`panel-${key}`}
+            tabIndex={tab === key ? 0 : -1}
+            onKeyDown={(event) => {
+              let next: Tab;
+              if (event.key === "ArrowRight" || event.key === "ArrowLeft") next = key === "material" ? "questions" : "material";
+              else if (event.key === "Home") next = "material";
+              else if (event.key === "End") next = "questions";
+              else return;
+              event.preventDefault();
+              selectTab(next);
+              document.getElementById(`tab-${next}`)?.focus();
+            }}
             onClick={() => selectTab(key)}
             className={`-mb-1 min-h-[48px] border-b-4 px-4 font-display text-lg font-bold ${
               tab === key ? "border-sky-dark text-sky-dark" : "border-transparent text-ink/75 hover:text-ink"
