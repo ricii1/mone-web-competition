@@ -11,10 +11,12 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 from app.schemas.generation import (
+    MAX_SOURCE_NOTE_CHARS,
     MIN_CONTENT_CHARS,
     GeneratedLevelLesson,
     GeneratedLevelSummary,
     GeneratedQuestionsOutput,
+    GeneratedSourceNotes,
 )
 
 T = TypeVar("T", bound=BaseModel)
@@ -197,9 +199,32 @@ def _questions(context: str, num_questions: int) -> GeneratedQuestionsOutput:
     return GeneratedQuestionsOutput.model_validate({"questions": questions})
 
 
+def _source_notes(context: str) -> GeneratedSourceNotes:
+    if len(context) <= MAX_SOURCE_NOTE_CHARS:
+        return GeneratedSourceNotes(notes=context)
+    sentences = _split_sentences(context)
+    chosen: set[int] = set()
+    length = 0
+    order = [0, len(sentences) - 1, len(sentences) // 2, *range(len(sentences))]
+    for index in dict.fromkeys(order):
+        sentence = sentences[index]
+        if length + len(sentence) + 1 <= MAX_SOURCE_NOTE_CHARS:
+            chosen.add(index)
+            length += len(sentence) + 1
+    notes = "\n".join(sentences[index] for index in sorted(chosen))
+    if not notes:
+        # Offline demo fallback for one oversized sentence; excerpts remain source text.
+        width = MAX_SOURCE_NOTE_CHARS // 3 - 2
+        middle = len(context) // 2
+        notes = "\n".join((context[:width], context[middle : middle + width], context[-width:]))
+    return GeneratedSourceNotes(notes=notes)
+
+
 async def mock_structured(user_prompt: str, schema: type[T]) -> T:
     await asyncio.sleep(settings.mock_llm_delay_seconds)
     context = _extract_context(user_prompt)
+    if schema is GeneratedSourceNotes:
+        return _source_notes(context)  # type: ignore[return-value]
     if schema is GeneratedLevelLesson:
         return _lesson(context)  # type: ignore[return-value]
     if schema is GeneratedLevelSummary:

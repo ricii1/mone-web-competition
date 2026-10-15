@@ -28,3 +28,7 @@ class ClassResponse(BaseModel):
 
 class ClassJoinRequest(BaseModel):
     invite_code: str | None = None
+
+
+class ClassDeleteRequest(BaseModel):
+    confirm_title: str

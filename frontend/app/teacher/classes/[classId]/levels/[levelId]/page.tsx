@@ -216,6 +216,11 @@ export default function TeacherLevelPage() {
                 {showPreview ? "Kembali menulis" : "Pratinjau"}
               </button>
             </div>
+            <p id="content-hint" className="mb-2 text-base text-ink/75">
+              Tips menulis: <code className="rounded bg-ink/10 px-1">###</code> untuk subjudul,{" "}
+              <code className="rounded bg-ink/10 px-1">-</code> untuk daftar,{" "}
+              <code className="rounded bg-ink/10 px-1">**tebal**</code> untuk huruf tebal.
+            </p>
             {showPreview ? (
               <div className="min-h-[200px] rounded-2xl border-2 border-dashed border-sky bg-sky-soft/40 p-4 sm:p-6">
                 {content.trim() ? (
@@ -234,11 +239,6 @@ export default function TeacherLevelPage() {
                 className="input-box leading-relaxed"
               />
             )}
-            <p id="content-hint" className="mt-2 text-base text-ink/75">
-              Tips menulis: <code className="rounded bg-ink/10 px-1">###</code> untuk subjudul,{" "}
-              <code className="rounded bg-ink/10 px-1">-</code> untuk daftar,{" "}
-              <code className="rounded bg-ink/10 px-1">**tebal**</code> untuk huruf tebal.
-            </p>
             <p
               className={`mt-2 flex items-center gap-2 font-bold ${wordWarning ? "text-alert" : "text-ink/80"}`}
               role="status"

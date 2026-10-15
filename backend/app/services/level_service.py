@@ -1,4 +1,5 @@
-from uuid import UUID
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -26,7 +27,15 @@ def build_level_responses(db: Session, levels: list[Level]) -> list[LevelRespons
             db.query(LevelChunk.level_id, MaterialChunk)
             .join(MaterialChunk, MaterialChunk.id == LevelChunk.chunk_id)
             .filter(LevelChunk.level_id.in_(list(sources)))
-            .order_by(MaterialChunk.page_start, MaterialChunk.page_end)
+            .join(Material, Material.id == MaterialChunk.material_id)
+            .order_by(
+                Material.created_at,
+                Material.id,
+                MaterialChunk.order_index,
+                MaterialChunk.page_start,
+                MaterialChunk.page_end,
+                MaterialChunk.id,
+            )
             .all()
         )
         for level_id, chunk in rows:
@@ -97,18 +106,25 @@ def delete_level(db: Session, level: Level) -> None:
 
 
 def class_publish_blockers(db: Session, class_id: UUID) -> list[str]:
-    """Kembalikan daftar judul level yang belum punya soal approved (memblokir publish)."""
+    """Report levels whose lessons or quiz questions have not been approved."""
     levels = list_levels_for_class(db, class_id)
+    approved_ids = {
+        row[0]
+        for row in db.query(Question.level_id)
+        .join(Level, Level.id == Question.level_id)
+        .filter(Level.class_id == class_id, Question.status == QuestionStatus.approved)
+        .distinct()
+        .all()
+    }
     blockers = []
     for level in levels:
-        has_approved = (
-            db.query(Question)
-            .filter(Question.level_id == level.id, Question.status == QuestionStatus.approved)
-            .first()
-            is not None
-        )
-        if not has_approved:
-            blockers.append(level.title)
+        reasons = []
+        if level.status != LevelStatus.approved:
+            reasons.append("materi belum disetujui")
+        if level.id not in approved_ids:
+            reasons.append("belum punya soal yang disetujui")
+        if reasons:
+            blockers.append(f"{level.title} ({'; '.join(reasons)})")
     return blockers
 
 
@@ -121,8 +137,9 @@ def has_approved_level(db: Session, class_id: UUID) -> bool:
     )
 
 
-def request_generation(db: Session, cls: Class) -> None:
+def request_generation(db: Session, cls: Class) -> str:
     """Validate a generate request and mark the class as generating (caller enqueues the job)."""
+    cls = db.query(Class).filter(Class.id == cls.id).populate_existing().with_for_update().one()
     if cls.is_example:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Class contoh tidak bisa digenerate"
@@ -149,7 +166,11 @@ def request_generation(db: Session, cls: Class) -> None:
         )
     cls.generation_status = GenerationStatus.generating
     cls.generation_error = None
+    cls.generation_job_id = str(uuid4())
+    cls.generation_requested_at = datetime.now(UTC)
+    job_id = cls.generation_job_id
     db.commit()
+    return job_id
 
 
 def delete_draft_levels(db: Session, class_id: UUID) -> None:

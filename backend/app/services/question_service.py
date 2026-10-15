@@ -30,7 +30,25 @@ def get_question_or_404(db: Session, question_id: UUID) -> Question:
     return question
 
 
+def _require_unique_question(
+    db: Session, level_id: UUID, text: str, exclude_id: UUID | None = None
+) -> None:
+    normalized = " ".join(text.split()).casefold()
+    if not normalized:
+        raise HTTPException(status_code=422, detail="Pertanyaan tidak boleh kosong")
+    db.query(Level).filter(Level.id == level_id).with_for_update().one()
+    existing = (
+        db.query(Question.id, Question.question_text).filter(Question.level_id == level_id).all()
+    )
+    if any(
+        q.id != exclude_id and " ".join(q.question_text.split()).casefold() == normalized
+        for q in existing
+    ):
+        raise HTTPException(status_code=409, detail="Pertanyaan yang sama sudah ada di level ini")
+
+
 def create_question(db: Session, level_id: UUID, body: QuestionCreateRequest) -> Question:
+    _require_unique_question(db, level_id, body.question_text)
     question = Question(
         level_id=level_id,
         question_text=body.question_text,
@@ -46,6 +64,8 @@ def create_question(db: Session, level_id: UUID, body: QuestionCreateRequest) ->
 
 
 def update_question(db: Session, question: Question, body: QuestionUpdateRequest) -> Question:
+    if body.question_text is not None:
+        _require_unique_question(db, question.level_id, body.question_text, question.id)
     for field in ("question_text", "options", "correct_answer", "explanation", "status"):
         value = getattr(body, field)
         if value is not None:

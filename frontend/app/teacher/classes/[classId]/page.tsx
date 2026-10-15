@@ -1,5 +1,10 @@
 "use client";
 
+import MaterialPdf from "@/components/MaterialPdf";
+import MaterialSections from "@/components/MaterialSections";
+import FailedMaterialActions from "@/components/FailedMaterialActions";
+import DeleteClass from "@/components/DeleteClass";
+
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -108,6 +113,7 @@ export default function TeacherClassPage() {
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "PDF belum bisa diunggah. Coba lagi ya.");
     } finally {
+      loadMaterials().catch(() => {});
       setUploading(false);
       e.target.value = "";
     }
@@ -148,6 +154,7 @@ export default function TeacherClassPage() {
 
   const readyMaterials = materials.some((m) => m.vector_status === "ready");
   const busy = generating || starting;
+  const pendingReviews = levels.filter((level) => level.status !== "approved").length;
   const failedMessage =
     cls?.generation_status === "failed"
       ? (cls.generation_error ?? progress?.error_message ?? "Generate level gagal.")
@@ -186,7 +193,7 @@ export default function TeacherClassPage() {
             Kuis bersama
           </Link>
           {!cls?.is_example && (
-            <button onClick={handlePublish} disabled={cls?.status === "published"} className="btn-primary">
+            <button onClick={handlePublish} disabled={cls?.status === "published" || !loaded || busy || pendingReviews > 0} className="btn-primary">
               <SparklesIcon size={22} />
               {cls?.status === "published" ? "Sudah terbit" : "Terbitkan kelas"}
             </button>
@@ -200,6 +207,12 @@ export default function TeacherClassPage() {
       {error && (
         <p role="alert" className="mb-4 rounded-2xl border-2 border-coral bg-coral-soft p-3 font-semibold text-alert">
           {error}
+        </p>
+      )}
+
+      {cls?.status === "draft" && !cls.is_example && pendingReviews > 0 && (
+        <p role="status" className="note mb-4 border-highlight bg-highlight/20">
+          Ada {pendingReviews} materi yang belum disetujui. Tinjau setiap level dan setujui minimal satu soal sebelum menerbitkan kelas.
         </p>
       )}
 
@@ -223,6 +236,9 @@ export default function TeacherClassPage() {
                 <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-paper px-3 py-2">
                   <span className="min-w-0 break-words font-semibold">{m.file_name}</span>
                   <span className={VECTOR_STATUS_COLOR[m.vector_status]}>{VECTOR_STATUS_LABEL[m.vector_status]}</span>
+                  <MaterialPdf classId={classId} material={m} />
+                  {m.vector_status === "ready" && <MaterialSections classId={classId} materialId={m.id} />}
+                  {m.vector_status === "failed" && <FailedMaterialActions classId={classId} material={m} disabled={busy} onChanged={refreshAll} />}
                   {m.error_message && <span className="w-full text-alert">{m.error_message}</span>}
                 </li>
               ))}
@@ -331,6 +347,7 @@ export default function TeacherClassPage() {
           )}
         </section>
       </div>
+      {cls && <DeleteClass classId={classId} title={cls.title} disabled={!loaded || busy || uploading || materials.some((m) => m.vector_status === "pending" || m.vector_status === "processing")} />}
     </PageShell>
   );
 }

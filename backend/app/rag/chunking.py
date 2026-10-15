@@ -1,6 +1,7 @@
+from bisect import bisect_right
 from dataclasses import dataclass
 
-from app.rag.parsing import ParsedPdf
+from app.rag.parsing import HeadingSpan, ParsedPdf, find_heading_offset
 
 CHUNK_SIZE_WORDS = 500
 CHUNK_OVERLAP_WORDS = 50
@@ -23,48 +24,68 @@ def chunk_parsed_pdf(parsed: ParsedPdf) -> list[Chunk]:
 
 
 def _chunk_by_toc(parsed: ParsedPdf) -> list[Chunk]:
-    entries = sorted(parsed.toc, key=lambda e: e[2])
-    chunks: list[Chunk] = []
-    total_pages = len(parsed.pages)
-
-    for i, (_level, title, start_page_1indexed) in enumerate(entries):
-        start_page = max(start_page_1indexed - 1, 0)
-        if i + 1 < len(entries):
-            next_start_page = max(entries[i + 1][2] - 1, 0)
-            end_page = max(next_start_page - 1, start_page)
-        else:
-            end_page = total_pages - 1
-        end_page = min(end_page, total_pages - 1)
-        content = "\n".join(parsed.pages[start_page : end_page + 1]).strip()
-        if content:
-            chunks.append(
-                Chunk(
-                    section_title=title, content=content, page_start=start_page, page_end=end_page
-                )
-            )
-    return chunks or _chunk_fixed_size(parsed)
+    entries = [entry for entry in parsed.toc if 1 <= entry[2] <= len(parsed.pages)]
+    boundaries = parsed.toc_headings or [
+        HeadingSpan(
+            page=page_number - 1,
+            text=title,
+            size=0,
+            offset=find_heading_offset(parsed.pages[page_number - 1], title) or 0,
+        )
+        for _, title, page_number in entries
+    ]
+    # Unrelated bookmarks at the same location cannot define separate sections safely.
+    positions: dict[tuple[int, int | None], int] = {}
+    for boundary, entry in zip(boundaries, entries, strict=False):
+        position = (boundary.page, boundary.offset)
+        if position in positions and positions[position] == entry[0]:
+            return _chunk_by_headings(parsed) if parsed.headings else _chunk_fixed_size(parsed)
+        positions[position] = entry[0]
+    return _chunk_sections(parsed, boundaries) or _chunk_fixed_size(parsed)
 
 
 def _chunk_by_headings(parsed: ParsedPdf) -> list[Chunk]:
-    headings = sorted(parsed.headings, key=lambda h: h.page)
-    chunks: list[Chunk] = []
-    total_pages = len(parsed.pages)
+    return _chunk_sections(parsed, parsed.headings) or _chunk_fixed_size(parsed)
 
-    for i, heading in enumerate(headings):
-        start_page = heading.page
-        end_page = headings[i + 1].page if i + 1 < len(headings) else total_pages - 1
-        end_page = max(end_page, start_page)
-        content = "\n".join(parsed.pages[start_page : end_page + 1]).strip()
-        if content:
-            chunks.append(
-                Chunk(
-                    section_title=heading.text,
-                    content=content,
-                    page_start=start_page,
-                    page_end=end_page,
-                )
+
+def _chunk_sections(parsed: ParsedPdf, headings: list[HeadingSpan]) -> list[Chunk]:
+    text = "\n".join(parsed.pages)
+    page_starts: list[int] = []
+    position = 0
+    for page in parsed.pages:
+        page_starts.append(position)
+        position += len(page) + 1
+    boundaries: dict[int, HeadingSpan] = {}
+    for heading in headings:
+        if not 0 <= heading.page < len(parsed.pages):
+            continue
+        offset = heading.offset
+        if offset is None:
+            offset = find_heading_offset(parsed.pages[heading.page], heading.text) or 0
+        offset = max(0, min(offset, len(parsed.pages[heading.page])))
+        boundaries[page_starts[heading.page] + offset] = heading
+    ordered = sorted(boundaries.items())
+    chunks = []
+    for index, (start, heading) in enumerate(ordered):
+        # Preserve any introduction preceding the first heading without creating a new level.
+        if index == 0:
+            start = 0
+        end = ordered[index + 1][0] if index + 1 < len(ordered) else len(text)
+        source = text[start:end]
+        content = source.strip()
+        if not content:
+            continue
+        first = start + len(source) - len(source.lstrip())
+        last = start + len(source.rstrip()) - 1
+        chunks.append(
+            Chunk(
+                section_title=heading.text,
+                content=content,
+                page_start=bisect_right(page_starts, first) - 1,
+                page_end=bisect_right(page_starts, last) - 1,
             )
-    return chunks or _chunk_fixed_size(parsed)
+        )
+    return chunks
 
 
 def _chunk_fixed_size(parsed: ParsedPdf) -> list[Chunk]:

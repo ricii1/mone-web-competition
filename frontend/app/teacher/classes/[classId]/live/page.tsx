@@ -11,6 +11,7 @@ import { useClassTitle } from "@/lib/useClassTitle";
 import type { Level, LiveSession } from "@/lib/types";
 
 interface LiveState {
+  question_id?: string;
   kind?: string;
   question_text?: string;
   options?: string[];
@@ -28,6 +29,7 @@ export default function TeacherLivePage() {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<LiveSession | null>(null);
   const [liveState, setLiveState] = useState<LiveState | null>(null);
+  const sessionId = session?.id;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,11 +41,27 @@ export default function TeacherLivePage() {
   }, [classId]);
 
   useEffect(() => {
-    if (!session) return;
-    return connectRealtime(`/ws/live/${session.id}`, (event) => {
-      if (event.type === "live_session_update") setLiveState(event.payload as LiveState);
-    });
-  }, [session]);
+    if (!sessionId) return;
+    let disposed = false;
+    let version = 0;
+    async function refresh() {
+      const requestVersion = ++version;
+      try {
+        const snapshot = await api.getLiveSession(sessionId!);
+        if (disposed || requestVersion !== version) return;
+        setSession(snapshot);
+        setLiveState(snapshot.status === "finished"
+          ? (snapshot.closed_question ? { kind: "question_closed", ...snapshot.closed_question } : { kind: "session_ended" })
+          : snapshot.question ? { kind: "question_started", ...snapshot.question } : null);
+      } catch (err) {
+        if (!disposed) setError(err instanceof ApiError ? err.message : "Sesi belum bisa dimuat. Kami mencoba lagi.");
+      }
+    }
+    const disconnect = connectRealtime(`/ws/live/${sessionId}`, (event) => {
+      if (event.type === "live_session_update") void refresh();
+    }, () => { void refresh(); });
+    return () => { disposed = true; disconnect(); };
+  }, [sessionId]);
 
   async function start(levelId: string) {
     setError(null);
@@ -66,7 +84,7 @@ export default function TeacherLivePage() {
   async function next() {
     if (!session) return;
     try {
-      await api.nextLiveQuestion(session.id);
+      await api.nextLiveQuestion(session.id, liveState?.question_id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Belum bisa lanjut ke soal berikutnya.");
     }
@@ -130,7 +148,7 @@ export default function TeacherLivePage() {
     state === "question_started"
       ? `Soal ${(liveState?.index ?? 0) + 1} dari ${liveState?.total ?? "?"} sedang berjalan`
       : state === "question_closed"
-        ? "Soal sudah ditutup"
+        ? (liveState?.finished ? "Kuis selesai" : "Soal sudah ditutup")
         : state === "session_ended"
           ? "Kuis selesai"
           : "Menunggu murid masuk";
@@ -151,16 +169,22 @@ export default function TeacherLivePage() {
         <p className="mt-2 font-display text-6xl font-extrabold tracking-[0.25em] text-ink sm:text-7xl">{session.join_code}</p>
       </div>
 
+      <div className="surface mb-6">
+        <p className="font-bold">Murid yang masuk: {session.participants?.length ?? 0}</p>
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {session.participants?.map((p) => <li key={p.user_id} className="badge-grape">{p.name}: {p.score}</li>)}
+        </ul>
+      </div>
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <button onClick={begin} className="btn-green min-h-[56px]">
+        <button onClick={begin} disabled={session.status !== "waiting"} className="btn-green min-h-[56px]">
           <PlayIcon size={22} />
           Mulai
         </button>
-        <button onClick={next} className="btn-primary min-h-[56px]">
+        <button onClick={next} disabled={session.status !== "running" || !liveState?.question_id} className="btn-primary min-h-[56px]">
           Soal berikutnya
           <ArrowRightIcon size={22} />
         </button>
-        <button onClick={end} className="btn-danger min-h-[56px]">
+        <button onClick={end} disabled={session.status === "finished"} className="btn-danger min-h-[56px]">
           Akhiri
         </button>
       </div>

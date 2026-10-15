@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
+from app.core.rate_limit import limit_auth_requests
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.user import User
@@ -12,7 +13,12 @@ from app.services.example_class import create_example_class
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(limit_auth_requests)],
+)
 def register(body: RegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
     user = User(
         name=body.name,
@@ -34,7 +40,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)) -> TokenRespo
     return TokenResponse(access_token=create_access_token(user.id, user.role.value))
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, dependencies=[Depends(limit_auth_requests)])
 def login(body: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
     user = db.query(User).filter(User.email == body.email).first()
     if user is None or not verify_password(body.password, user.password_hash):

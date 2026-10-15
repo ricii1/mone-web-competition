@@ -5,10 +5,16 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, require_student, require_teacher
 from app.db.session import get_db
-from app.models.class_ import ClassStatus
+from app.models.class_ import ClassStatus, GenerationStatus
 from app.models.user import User
-from app.schemas.class_ import ClassCreateRequest, ClassJoinRequest, ClassResponse
+from app.schemas.class_ import (
+    ClassCreateRequest,
+    ClassDeleteRequest,
+    ClassJoinRequest,
+    ClassResponse,
+)
 from app.services import class_service, level_service
+from app.services.resource_deletion import delete_class
 
 router = APIRouter(prefix="/api/v1/classes", tags=["classes"])
 
@@ -73,11 +79,15 @@ def publish_class(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Class contoh tidak bisa dipublish. Buat class baru untuk materimu sendiri.",
         )
+    if cls.generation_status == GenerationStatus.generating:
+        raise HTTPException(
+            status_code=400, detail="Tunggu pembuatan materi selesai sebelum terbit"
+        )
     blockers = level_service.class_publish_blockers(db, class_id)
     if blockers:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Level berikut belum punya soal approved: {', '.join(blockers)}",
+            detail=f"Level berikut belum siap diterbitkan: {', '.join(blockers)}",
         )
     cls.status = ClassStatus.published
     db.commit()
@@ -93,3 +103,13 @@ def join_class(
     db: Session = Depends(get_db),
 ) -> None:
     class_service.join_class(db, student, class_id, body.invite_code)
+
+
+@router.delete("/{class_id}", status_code=204)
+async def remove_class(
+    class_id: UUID,
+    body: ClassDeleteRequest,
+    teacher: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
+) -> None:
+    await delete_class(db, class_id, teacher, body.confirm_title)

@@ -67,10 +67,11 @@ export function connectRealtime(
   let stopped = false;
   let socket: WebSocket | null = null;
   let reconnectDelay = RECONNECT_BASE_MS;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
 
   function startPolling() {
-    if (pollTimer || !poll) return;
+    if (stopped || pollTimer || !poll) return;
     poll();
     pollTimer = setInterval(poll, POLL_INTERVAL_MS);
   }
@@ -90,12 +91,14 @@ export function connectRealtime(
       socket = new WebSocket(url);
     } catch {
       startPolling();
+      reconnectTimer = setTimeout(connect, reconnectDelay);
+      reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
       return;
     }
 
     socket.onopen = () => {
       reconnectDelay = RECONNECT_BASE_MS;
-      stopPolling();
+      if (!stopped) poll?.();
     };
     socket.onmessage = (event) => {
       try {
@@ -110,16 +113,18 @@ export function connectRealtime(
     socket.onclose = () => {
       startPolling();
       if (stopped) return;
-      setTimeout(connect, reconnectDelay);
+      reconnectTimer = setTimeout(connect, reconnectDelay);
       reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
     };
   }
 
+  startPolling();
   connect();
 
   return () => {
     stopped = true;
     stopPolling();
+    if (reconnectTimer) clearTimeout(reconnectTimer);
     socket?.close();
   };
 }

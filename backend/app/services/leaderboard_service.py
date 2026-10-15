@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
+from redis.exceptions import WatchError
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,7 @@ from app.realtime.events import LeaderboardUpdatedPayload, RealtimeEvent
 from app.realtime.pubsub import get_redis, publish_event
 
 LEADERBOARD_KEY_PREFIX = "leaderboard"
-EPOCH_DIVISOR = 1_000_000_000_000.0
+MAX_EPOCH_MICROSECONDS = 9_999_999_999_999_999
 FAR_FUTURE_EPOCH = 9_999_999_999.0
 
 
@@ -55,26 +56,40 @@ def compute_leaderboard_from_postgres(
 async def rebuild_leaderboard_cache(db: Session, class_id: UUID) -> None:
     redis = get_redis()
     key = _redis_key(class_id)
-    entries = compute_leaderboard_from_postgres(db, class_id)
-    await redis.delete(key)
-    if entries:
-        mapping = {
-            f"{user_id}:{name}": total_score - (epoch / EPOCH_DIVISOR)
-            for user_id, name, total_score, epoch in entries
-        }
-        await redis.zadd(key, mapping)
+    version_key = f"{key}:version"
+    while True:
+        async with redis.pipeline(transaction=True) as pipe:
+            try:
+                await pipe.watch(version_key)
+                entries = compute_leaderboard_from_postgres(db, class_id)
+                # Integer scores stay exact; reverse lexicographic order breaks ties by time.
+                mapping = {
+                    (
+                        f"{MAX_EPOCH_MICROSECONDS - round(epoch * 1_000_000):016d}:{user_id}:{name}"
+                    ): score
+                    for user_id, name, score, epoch in entries
+                }
+                pipe.multi()
+                pipe.delete(key)
+                if mapping:
+                    pipe.zadd(key, mapping)
+                pipe.set(f"{key}:format", "2")
+                await pipe.execute()
+                return
+            except WatchError:
+                continue
 
 
 async def get_leaderboard(db: Session, class_id: UUID, limit: int = 50) -> list[LeaderboardEntry]:
     redis = get_redis()
     key = _redis_key(class_id)
-    if not await redis.exists(key):
+    if not await redis.exists(key) or await redis.get(f"{key}:format") != "2":
         await rebuild_leaderboard_cache(db, class_id)
 
     raw = await redis.zrevrange(key, 0, limit - 1, withscores=True)
     entries = []
     for rank, (member, score) in enumerate(raw, start=1):
-        user_id_str, _, name = member.partition(":")
+        _, user_id_str, name = member.split(":", 2)
         entries.append(
             LeaderboardEntry(user_id=UUID(user_id_str), name=name, score=round(score), rank=rank)
         )
@@ -82,6 +97,7 @@ async def get_leaderboard(db: Session, class_id: UUID, limit: int = 50) -> list[
 
 
 async def on_best_score_changed(db: Session, class_id: UUID) -> None:
+    await get_redis().incr(f"{_redis_key(class_id)}:version")
     await rebuild_leaderboard_cache(db, class_id)
     await publish_event(
         class_channel(class_id),

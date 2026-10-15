@@ -1,9 +1,13 @@
+from urllib.parse import unquote, urlsplit
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", hide_input_in_errors=True)
 
+    app_env: str = "development"
     database_url: str
     redis_url: str
     worker_max_jobs: int = 2
@@ -30,6 +34,21 @@ class Settings(BaseSettings):
     max_upload_mb: int = 20
 
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        if self.app_env == "production":
+            if len(self.jwt_secret.encode()) < 32 or "change-me" in self.jwt_secret.lower():
+                raise ValueError("Production requires a random JWT_SECRET of at least 32 bytes")
+            password = unquote(urlsplit(self.database_url).password or "")
+            if not password or password.casefold() in {
+                "edumap",
+                "password",
+                "postgres",
+                "changeme",
+            }:
+                raise ValueError("Production requires a database password other than examples")
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

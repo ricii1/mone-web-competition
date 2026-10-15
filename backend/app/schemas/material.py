@@ -13,3 +13,27 @@ class MaterialResponse(BaseModel):
     error_message: str | None
 
     model_config = {"from_attributes": True}
+
+
+class MaterialSection(BaseModel):
+    id: UUID
+    section_title: str | None
+    order_index: int
+    page_start: int
+    page_end: int
+    excerpt: str
+    character_count: int
+
+
+class MaterialSectionsResponse(BaseModel):
+    sections: list[MaterialSection]
+    total: int
+    offset: int
+    limit: int
+
+
+class MaterialSectionContent(BaseModel):
+    id: UUID
+    content: str
+
+    model_config = {"from_attributes": True}

@@ -52,3 +52,29 @@ def test_login_wrong_password_rejected(client):
 def test_me_without_token_rejected(client):
     resp = client.get("/api/v1/auth/me")
     assert resp.status_code in (401, 403)
+
+
+def test_login_throttle_rejects_repeated_attempts(client):
+    for _ in range(10):
+        response = client.post(
+            "/api/v1/auth/login", json={"email": "absent@example.com", "password": "wrong"}
+        )
+        assert response.status_code == 401
+    response = client.post(
+        "/api/v1/auth/login", json={"email": "absent@example.com", "password": "wrong"}
+    )
+    assert response.status_code == 429
+    assert "Retry-After" in response.headers
+
+
+def test_password_byte_limit_prevents_bcrypt_truncation(client):
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "name": "Murid",
+            "email": "limit@example.com",
+            "role": "student",
+            "password": "😀" * 19,
+        },
+    )
+    assert response.status_code == 422

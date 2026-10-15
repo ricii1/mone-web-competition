@@ -180,7 +180,7 @@ Alur saat guru mengunggah PDF:
    - Ekstrak teks per halaman dengan `pymupdf`.
    - **Chunking per section**: pakai heading/bookmark PDF (ToC) jika ada; jika tidak, deteksi heading dari ukuran font; jika tetap gagal, fallback ke chunk ukuran tetap (~500 token, overlap ~50).
    - Simpan `section_title`, `page_start`, `page_end` di tiap chunk.
-   - Embedding di CPU secara batch. **Model e5 wajib memakai prefix**: `"passage: "` untuk isi chunk, `"query: "` untuk query retrieval. Muat model sekali (singleton), jangan per request.
+   - Embedding di CPU secara batch. **Model e5 wajib memakai prefix**: `"passage: "` untuk isi chunk, `"query: "` untuk query retrieval. Muat model sekali (singleton), jangan per request. Panggil `encode(..., convert_to_numpy=True)` lalu `.tolist()`: dengan `convert_to_numpy=False`, sentence-transformers 6.x mengembalikan list tensor untuk input batch sehingga `.tolist()` gagal.
 3. Selesai → `ready`. Error → `failed` + `error_message` yang bisa dibaca guru. Pipeline harus idempoten (memproses ulang material menghapus chunk lama dulu).
 
 Retrieval:
@@ -194,7 +194,8 @@ Prompt dan LLM:
 - System prompt wajib menegaskan: jawab hanya dari konteks yang diberikan, dalam Bahasa Indonesia, dan akui jika konteks tidak cukup.
 - Output terstruktur (level, soal) diminta dalam JSON lalu **divalidasi dengan Pydantic**. Jika gagal parse, retry maksimal 2 kali lalu tandai gagal.
 - Tangani rate limit Groq (HTTP 429) dengan exponential backoff dan fitur retry `arq`. Batasi jumlah panggilan Groq global per menit memakai counter di Redis. Jangan panggil LLM di dalam loop tanpa batas.
-- Generate level dan generate soal juga berjalan sebagai job `arq`, dengan event progres yang sama.
+- Mode `LLM_MODE=openai` (gateway OpenAI-compatible, mis. LiteLLM ITS) memakai jalur yang sama: `httpx` ke `{LLM_BASE_URL}/chat/completions`, kesalahan HTTP dibungkus `LlmHttpError` (punya `status_code` sehingga backoff 429 tetap jalan), blok `<think>` model penalaran (qwen3) dibuang sebelum JSON divalidasi. Model yang tersedia di gateway ITS: `qwen3:14b` (default), `qwen3.5:9b`. Satu generate PDF kecil sekitar 3 menit.
+- Generate level dan generate soal juga berjalan sebagai job `arq`, dengan event progres yang sama. `WorkerSettings.job_timeout = 1800` (bawaan arq 300 detik terlalu pendek untuk PDF panjang); jika job dibatalkan karena timeout, `generation_status` harus menjadi `failed` (tangkap `asyncio.CancelledError`, bukan hanya `Exception`).
 - Jangan panggil LLM saat murid membuka halaman level. Ringkasan dan soal dibuat saat generate/review guru, lalu disimpan di DB.
 
 ---
@@ -203,14 +204,14 @@ Prompt dan LLM:
 
 Generate level:
 
-- Satu section materi = satu level (`lesson_quiz`). Setiap 3–5 level, sisipkan satu level `boss` yang soalnya menggabungkan level-level sebelumnya.
+- Satu section materi = satu level (`lesson_quiz`). Setiap 3–5 level, sisipkan satu level `boss` yang soalnya menggabungkan level-level sebelumnya. Implementasi: boss disisipkan setiap `LEVELS_PER_BOSS = 4` level (`services/level_service.py`) dan tidak setelah level terakhir, sehingga class dengan 4 section atau kurang tidak punya boss; untuk 8 section ada boss setelah level ke-4; untuk 9 section ada boss setelah level ke-4 dan ke-8.
 - Graph dibuat **linear dengan sedikit percabangan**: setiap level punya paling banyak satu `prerequisite_id`. Level pertama tanpa prasyarat. Jangan membuat skill-tree kompleks.
 - Setiap level lesson berisi artikel (`content`), rangkuman, poin penting, dan sumber. Guru bisa mengedit semuanya di tab "Materi" (layout satu kolom lebar, tombol Simpan menempel di dasar layar). **Sumber** ada dua: `source_note` (teks bebas yang diketik guru, mis. "Buku IPA Kelas 4 hal. 12-15") dan bagian PDF yang dipakai AI (`level_chunks`, hanya tampil read-only). Jangan mengubah kembali ke checklist chunk: tidak skala untuk PDF asli.
 - Hasil generate berstatus `draft`. Guru bisa mengubah judul, urutan, prasyarat, menggabung/memisah level, lalu publish class.
 
 Soal (hybrid):
 
-- AI membuat draft soal pilihan ganda (default 5 per level, 4 opsi) dari chunk level tersebut, lengkap dengan penjelasan dan `source_chunk_id`.
+- AI membuat draft soal pilihan ganda (default 5 per level, 4 opsi) dari chunk level tersebut, lengkap dengan penjelasan dan `source_chunk_id`. Skema `GeneratedQuestion` menolak opsi kembar (dibandingkan tanpa spasi dan huruf besar/kecil) dan jawaban benar yang bukan salah satu opsi; output seperti itu memicu retry JSON.
 - Guru bisa edit, hapus, tambah manual, dan approve. **Murid hanya melihat soal `approved`**.
 - Class tidak bisa di-publish jika ada level tanpa soal `approved`.
 
@@ -337,6 +338,20 @@ MVP (kerjakan dulu, urut prioritas):
 
 Nice-to-have (jangan dikerjakan kecuali diminta): level Tutor Sokratik (chat streaming), tema naratif "wilayah berkabut", peta kelas sosial, notifikasi proaktif, analitik guru lanjutan. Desain kode agar fitur ini bisa ditambahkan nanti (misalnya `levels.type` bisa diperluas, channel event bisa ditambah), tetapi jangan membuat kerangkanya sekarang.
 
+### Backlog perbaikan (hasil uji generate dengan `qwen3:14b`, 11 Oktober 2026)
+
+Temuan dari uji nyata: PDF 4 section selesai sekitar 3 menit, PDF 9 section sekitar 5,5 menit (11 level, 55 soal valid). Daftar ini **usulan**, bukan kesepakatan; kerjakan hanya jika diminta, urut dari yang paling berdampak:
+
+1. **Job macet di "generating".** Selain timeout (sudah diperbaiki), worker yang mati atau di-restart saat job berjalan (SIGTERM, crash) juga meninggalkan `generation_status=generating` selamanya, dan `POST .../levels/generate` lalu ditolak. Usulan: saat worker start (atau saat endpoint dipanggil) tandai class yang `generating` lebih lama dari `job_timeout` sebagai `failed`. Tambahkan test untuk kasus timeout dan restart.
+2. **Artikel pendek jika section PDF pendek.** Prompt meminta 450-650 kata "jika konteks cukup"; section ±120-150 kata menghasilkan artikel 218-346 kata. Itu perilaku benar (AI tidak mengarang), tetapi guru perlu tahu. Usulan: beri peringatan di UI guru ("materi sumber pendek, artikel mungkin singkat") dan/atau gabungkan section bertetangga yang sangat pendek menjadi satu level. Jangan menyuruh model menambah isi dari pengetahuan umum.
+3. **Boss tidak adil untuk ekor.** Boss disisipkan setiap 4 level dan tidak setelah level terakhir, jadi class 4 section tidak punya boss dan sisa level setelah boss terakhir tidak ditutup boss. Usulan: jika sisa ≥ 3 level di akhir, tambahkan satu boss penutup; selaraskan konstanta dengan teks "3-5 level".
+4. **Kecepatan.** Level dan soal dibuat berurutan (±2 panggilan LLM per level, ±30 detik per panggilan). Usulan: jalankan beberapa level paralel dengan batas kecil (2-3) tetap di bawah counter rate limit Redis. Jangan menaikkan paralelisme tanpa menjaga batas itu.
+5. **Token terbuang pada model penalaran.** Gateway mengembalikan `reasoning_content` panjang untuk qwen3. Perlu dicoba (belum diverifikasi) mematikan mode berpikir lewat parameter gateway agar lebih cepat dan murah; pastikan JSON tetap valid.
+6. **Kualitas soal.** Opsi kembar sudah ditolak skema. Usulan tambahan yang murah: tolak soal yang pertanyaannya sama dengan soal lain di level itu, dan pastikan `explanation` merujuk isi chunk. Guru tetap meninjau semua soal `draft`.
+7. **Material gagal tertinggal.** Material `failed` tetap tampil sebagai duplikat setelah upload ulang. Usulan: tombol "Coba proses lagi" (job idempoten sudah ada) dan "Hapus" untuk material.
+8. **Nama yang menyesatkan.** `call_groq_structured`, `call_groq_with_backoff`, `_call_groq_sync`, `GROQ_MAX_CALLS_PER_MINUTE`, dan key Redis `groq:calls:*` kini melayani semua provider. Usulan rename ke nama netral (`call_llm_*`) dalam satu commit `refactor:` tersendiri beserta test.
+9. **Fixture uji.** Tidak ada PDF contoh di repo (dan PDF pihak lain tidak boleh di-commit). Usulan: skrip kecil yang membuat PDF uji dengan `pymupdf` (beberapa section, panjang bervariasi) agar uji generate bisa diulang.
+
 ---
 
 ## 15. Jangan lakukan
@@ -370,3 +385,174 @@ Lomba ini mewajibkan dokumentasi lengkap prompt awal–akhir (termasuk debugging
 - Debugging **wajib** dicatat sebagai entri tersendiri: apa masalahnya, kenapa terjadi, dan apa perbaikannya — bukan cuma "fixed bug".
 - Tulis entri di akhir setiap tugas yang selesai (bukan ditunda ke akhir sesi), supaya tidak ada yang terlewat kalau sesi terputus.
 - `conversation.md` ikut di-stage/commit bersama perubahan kode terkait.
+
+
+## 17. Perbaikan audit DevOps (11 Oktober 2026)
+
+- Development memakai port DB/Redis loopback. Override `docker-compose.production.yml`
+  menutup keduanya, menjalankan service non-root tanpa watcher/bind mount, serta memakai
+  frontend standalone. Production memerlukan secret JWT minimal 32 byte dan menolak
+  password database contoh; frontend production tidak menerima env backend.
+- Upload mempunyai batas body sebelum multipart parsing, baca bertahap, signature PDF
+  ringan dan cleanup ketika gagal. Parsing PDF tetap di worker. Kegagalan enqueue material
+  menjadi `failed`; kegagalan enqueue generate menjadi `failed` dan respons 503.
+- Migrasi `0008` menambahkan `classes.generation_job_id` dan `generation_requested_at`.
+  Worker startup dan endpoint generate memulihkan job yang hilang/selesai setelah tenggat;
+  job antre/deferred/berjalan tetap sah. Job lama diberi masa tenggang saat migrasi.
+  Permintaan generate diserialkan dengan lock baris; worker menolak identitas job lama.
+- Kuota LLM diperoleh untuk setiap percobaan HTTP termasuk retry 429; setelah menunggu
+  pergantian menit wajib mengambil slot lagi. Retry tersembunyi SDK Groq dimatikan.
+- Auth dibatasi per IP dan email (login 10/menit, register 20/jam); password maksimal
+  72 byte agar bcrypt tidak memotong diam-diam. Field nama dibatasi 100 karakter.
+- WebSocket menutup session DB setelah otorisasi, sebelum streaming. Live WebSocket
+  hanya untuk host/peserta sesi, selaras dengan REST.
+- Submit live memakai `HSETNX` dalam transaksi yang mengawasi soal aktif; close/start/end
+  diserialkan dengan lock kontrol Redis dan lock baris Postgres. Close tidak menilai ulang
+  soal yang sudah tersimpan. Tombol next mengirim ID soal untuk menolak permintaan lama.
+  Retensi state/jawaban live 24 jam; deadline tetap 20 detik. Akhiri menyimpan jawaban
+  sebelum cleanup. Kegagalan notifikasi pub/sub tidak menggagalkan state yang tersimpan.
+- REST sesi live menyediakan soal aktif tanpa jawaban benar, jawaban sendiri, peserta
+  (nama/skor), dan hasil akhir. Frontend mengambil snapshot saat connect/reconnect dan
+  polling 4 detik, juga ketika event masuk. Timer reconnect/polling dibersihkan saat keluar.
+- Leaderboard memakai penggantian cache atomik dan versi untuk retry ketika skor berubah
+  saat rebuild; integer score dan urutan leksikografis mempertahankan tie waktu mikrodetik.
+  Format cache lama dibangun ulang otomatis. Pemeriksaan publish memakai dua query tetap.
+- `docs/devops-audit.md` menyimpan bukti audit dan status perbaikannya;
+  `docs/backlog-solutions.md` menyimpan usulan produk/optimasi yang belum semuanya diterapkan.
+
+
+## 18. PDF asli untuk guru dan murid (12 Oktober 2026)
+
+- Guru membuka PDF asli dari daftar materi di halaman kelola class melalui tombol
+  "Lihat PDF". Murid membuka bagian "Materi PDF dari guru" pada halaman peta kelas.
+- File diambil lewat client API dengan header Bearer, bukan token dalam URL.
+  Endpoint `GET /api/v1/classes/{class_id}/materials/{material_id}/file` mengizinkan
+  pemilik kelas atau murid yang ter-enroll di kelas published. Material harus milik
+  kelas tersebut dan file harus berada di direktori upload kelas; file hilang memberi 404.
+- Viewer menggunakan PDF bawaan browser (iframe dari object URL), dimuat hanya
+  ketika diminta. Request dibatalkan dan object URL dilepas saat viewer ditutup/unmount.
+  Sediakan tombol "Unduh PDF" untuk perangkat yang tidak mendukung tampilan PDF inline.
+  Respons memakai `application/pdf`, inline disposition dan `private, no-store`.
+- Tips format Markdown pada editor artikel guru diletakkan sebelum kotak artikel;
+  pertahankan `aria-describedby` yang menghubungkan kotak dengan tips.
+
+
+## 19. Hasil uji batas subbab PDF (12 Oktober 2026)
+
+Enam fixture asli dibuat melalui
+`backend/scripts/generate_pdf_layout_fixtures.py`; hasil rinci di
+`docs/pdf-layout-test.md`. Parser/chunker belum diubah pada sesi pengujian ini.
+
+- Jalur bookmark benar untuk satu subbab per halaman, tetapi tidak memisahkan
+  dua bookmark pada halaman yang sama dan salah menempatkan kelanjutan subbab.
+- Jalur font-heading memasukkan halaman heading berikut sebagai akhir inklusif:
+  bahkan PDF rapi tanpa bookmark ikut tercampur; pada subbab di tengah halaman,
+  potongan bisa mencakup beberapa subbab sekaligus.
+- PDF tanpa heading yang bisa dikenali memakai fallback 500 kata/overlap 50;
+  jumlah level kemudian mengikuti jumlah chunk, bukan selalu jumlah subbab.
+- Pipeline worker dengan parsing asli dan embedding/LLM mock menghasilkan
+  16 level/80 soal dari enam fixture, tetapi artikel bisa ikut tercampur karena
+  sumber chunk salah. Status done dan jumlah level saja tidak membuktikan kualitas.
+- Usulan perbaikan: simpan posisi heading dalam teks dan potong sampai sebelum
+  heading berikutnya; gunakan lokasi/pencocokan heading untuk bookmark di halaman
+  yang sama. Tambahkan test penanda isi per subbab dan kelanjutan lintas halaman.
+
+
+## 20. Perbaikan batas subbab PDF (12 Oktober 2026)
+
+Bug pada bagian 19 sudah diperbaiki: `HeadingSpan.offset` dan `ParsedPdf.toc_headings`
+menyimpan posisi dalam teks halaman. Teks dan offset berasal dari aliran baris yang
+sama; heading multi-span/dua baris dalam satu blok digabung. Bookmark dicocokkan
+ke judul atau lokasi tujuan. Batas chunk berakhir sebelum heading berikutnya,
+termasuk pada halaman yang sama; metadata halaman memakai isi aktual. Pengantar
+sebelum heading pertama dipertahankan di chunk pertama. Bookmark bertingkat dengan
+posisi sama tidak menggandakan materi; bookmark ambigu memakai fallback yang aman.
+
+Test `test_pdf_section_boundaries.py` wajib menjaga isi subbab, kelanjutan,
+metadata halaman, heading/gaya huruf, bookmark dan sumber artikel/soal pada worker.
+Hasil lama tidak diubah otomatis; perbaikan berlaku saat PDF diproses dengan worker
+baru. Dokumen tanpa struktur yang dapat dikenali tetap memakai fallback 500 kata
+(overlap 50). Semua test memakai embedding/LLM mock dan database test terpisah.
+
+
+## 21. Urutan, persetujuan, dan sumber panjang (12 Oktober 2026)
+
+- Migrasi `0009` menambahkan `material_chunks.order_index` dan index
+  `(material_id, order_index)`. Worker menyimpan urutan hasil chunking; generate
+  dan tampilan sumber mengurutkan material lalu `order_index`. Nomor halaman
+  tidak cukup untuk dua subbab pada halaman yang sama.
+- Data lama di-backfill dengan urutan halaman dan ID sebagai pemecah seri.
+  Urutan asli beberapa subbab di halaman yang sama pada chunk lama tidak dapat
+  dipastikan hanya dari data tersebut; jangan mengklaim backfill memulihkan offset
+  yang sebelumnya tidak tersimpan. Artikel/progres/relasi sumber lama dipertahankan.
+- Publish membutuhkan setiap level berstatus `approved` dan minimal satu soal
+  `approved` per level. Publish saat generate masih berjalan ditolak. UI guru
+  menampilkan jumlah materi yang masih perlu ditinjau. Kelas kosong tetap mengikuti
+  perilaku sebelumnya; kelas yang sudah terbit tidak diubah otomatis oleh migrasi.
+- Konteks lebih dari 8.000 karakter dibaca seluruhnya dalam bagian maksimal 8.000,
+  dengan batas kalimat jika memungkinkan. Template `source_notes.txt` menghasilkan
+  catatan Pydantic `GeneratedSourceNotes` maksimal 2.000 karakter per bagian;
+  catatan direduksi bertahap hingga muat, tanpa mengambil awalan sumber saja.
+  Artikel dan soal memakai konteks siap yang sama, termasuk boss; semua tetap draft.
+- Semua panggilan catatan memakai jalur LLM/limiter/retry yang sama, hanya dari worker.
+  Batas 16 bagian per putaran, 4 putaran reduksi, dan maksimal 128.000 karakter input
+  mencegah pekerjaan tanpa batas. Jika melewati batas, job gagal dengan pesan meminta
+  subbab dipisah; jangan membuang bagian akhir diam-diam. Catatan tetap perlu review
+  guru; membaca semua bagian tidak menjamin model mempertahankan setiap detail.
+- Test menjaga urutan insert/UUID yang berbeda, sumber artikel/soal awal–tengah–akhir,
+  batas panggilan, publish draft/generating, serta backfill yang menjaga data guru.
+
+
+## 22. Pratinjau sumber, proses ulang, soal unik, dan hapus kelas (12 Oktober 2026)
+
+- Guru dapat melihat pembagian PDF sebelum generate: judul, urutan, rentang halaman,
+  cuplikan, dan teks lengkap. Endpoint `materials/{id}/sections` dibatasi maksimal
+  50 bagian per request; teks lengkap dimuat terpisah saat dibuka. Semua hanya untuk
+  pemilik kelas dan material `ready`, tanpa parsing atau embedding di proses API.
+- Materi `failed` memiliki tindakan "Coba proses lagi" dan "Hapus PDF gagal".
+  Keduanya ditolak saat generate aktif atau jika chunk dipakai oleh `level_chunks`
+  atau `questions.source_chunk_id`. Retry memakai file asli dan job worker yang sama.
+- Migrasi `0010` menambah `materials.processing_job_id` nullable. Upload/retry baru
+  menetapkan UUID job baru; worker memeriksa token dan melakukan claim status atomik.
+  Job dengan token lama atau job yang sudah selesai tidak mengganti hasil baru.
+  Material lama dengan token null tetap mendukung job lama; material ready yang
+  sudah dipakai sebagai sumber dilewati agar job legacy tidak merusak hasil review.
+  Pembatalan worker
+  menjadi `failed`; kegagalan pub/sub hanya dicatat dan tidak membalik status sukses.
+- Pertanyaan satu level harus unik setelah whitespace dinormalisasi dan huruf
+  dibandingkan dengan `casefold`. Output AI duplikat memicu retry JSON terbatas;
+  tambah/edit manual ditolak dengan pesan jelas. Data lama tidak dihapus otomatis.
+- "Hapus kelas" ada di bagian bawah halaman kelola kelas. Guru harus mengetik nama
+  kelas tepat; backend juga memeriksa nama, kepemilikan, job materi/generate dan sesi
+  live. Sesi `waiting`/`running` harus diakhiri dahulu. Akun tidak ikut dihapus.
+- Penghapusan kelas membersihkan file pada folder UUID kelas, level/soal/sumber,
+  enrollment/progres/attempt dan sesi beserta peserta. Cache terkait dibersihkan
+  setelah commit. Hubungan sumber/prasyarat lintas kelas yang tidak valid ditolak,
+  bukan diam-diam mengubah kelas lain. Symlink keluar folder kelas ditolak.
+- File/folder dipindah sementara sebelum transaksi delete dan dikembalikan bila
+  transaksi gagal. Setelah commit, pembersihan file/cache dilakukan; kegagalan
+  filesystem atau Redis dicatat untuk operator. Kegagalan penghapusan filesystem
+  setelah commit dapat menyisakan folder `.deleted-*`, bukan metadata aktif.
+- `test_resource_management.py` menjaga izin, batas payload, referensi sumber,
+  identitas job, pemulihan file/data, penghapusan lengkap, dan retry soal duplikat.
+
+
+## 23. Bantuan interaktif dan dialog layar penuh (12 Oktober 2026)
+
+- Panel bantuan memakai `<dialog>.showModal()` agar masuk lapisan modal browser.
+  Jangan menaruh kembali overlay `fixed` biasa di dalam header `backdrop-blur`:
+  filter header menjadi containing block dan membuat overlay hanya setinggi header.
+- Batas panel mengikuti `100dvh` dan safe area. Isi bisa digulir; judul/tutup dan
+  tombol Sebelumnya/Berikutnya tetap terlihat. Buka ulang/ganti mode mengembalikan
+  guliran ke awal. Escape, klik latar, tombol tutup dan pemulihan fokus tetap bekerja.
+- Panduan guru/murid punya langkah yang bisa dipilih (pilihan dropdown di HP,
+  tombol nomor di layar lebar), penanda "Sudah paham", tautan
+  menuju halaman terkait dan masalah umum yang bisa dibuka. Penanda hanya state
+  lokal komponen, bukan progres belajar dan tidak disimpan ke backend/localStorage.
+- Tab mode mendukung tombol panah/Home/End, roving tabindex dan ARIA panel; kontrol
+  bantuan berukuran minimal 48px. Panduan guru harus mengikuti aturan publish terbaru
+  (materi level approved serta minimal satu soal approved), bukan hanya soal approved.
+- Uji browser memeriksa guru/murid pada 320×568, 360×640, 800×360 dan 1280×800,
+  geometri panel/judul, overflow, kontrol langkah, FAQ, tab keyboard, tutup/Escape,
+  pemulihan fokus/scroll dan posisi awal saat dibuka lagi. Rincian di
+  `docs/help-ui-check.md`. Tidak ada dependency UI baru atau panggilan AI tambahan.

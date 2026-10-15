@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { FlagIcon, MapIcon, StarIcon, TrophyIcon } from "@/components/icons";
+import ClassMaterials from "@/components/ClassMaterials";
 import Mascot from "@/components/Mascot";
 import PageShell from "@/components/PageShell";
 import { ApiError, api } from "@/lib/api";
@@ -114,6 +115,7 @@ export default function StudentMapPage() {
         </div>
       )}
       {total > 0 && <LevelMap classId={classId} levels={levels} progress={progress} height="clamp(440px, 68vh, 760px)" />}
+      {!loading && !error && <ClassMaterials key={classId} classId={classId} />}
     </PageShell>
   );
 }

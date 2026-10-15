@@ -38,13 +38,16 @@ class GeneratedLevelLesson(GeneratedLevelSummary):
 
 
 class GeneratedQuestion(BaseModel):
-    question_text: str
+    question_text: str = Field(min_length=1)
     options: list[str] = Field(min_length=4, max_length=4)
     correct_answer: str
     explanation: str
 
     @model_validator(mode="after")
     def _answer_must_be_an_option(self) -> "GeneratedQuestion":
+        normalized = [option.strip().lower() for option in self.options]
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("options must all be different")
         if self.correct_answer not in self.options:
             raise ValueError("correct_answer must be exactly one of options")
         return self
@@ -52,3 +55,24 @@ class GeneratedQuestion(BaseModel):
 
 class GeneratedQuestionsOutput(BaseModel):
     questions: list[GeneratedQuestion] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def questions_must_be_unique(self) -> "GeneratedQuestionsOutput":
+        normalized = [" ".join(q.question_text.split()).casefold() for q in self.questions]
+        if any(not text for text in normalized) or len(set(normalized)) != len(normalized):
+            raise ValueError("question texts must be nonblank and different within a level")
+        return self
+
+
+MAX_SOURCE_NOTE_CHARS = 2000
+
+
+class GeneratedSourceNotes(BaseModel):
+    notes: str = Field(min_length=1, max_length=MAX_SOURCE_NOTE_CHARS)
+
+    @field_validator("notes")
+    @classmethod
+    def notes_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("source notes must not be blank")
+        return value.strip()

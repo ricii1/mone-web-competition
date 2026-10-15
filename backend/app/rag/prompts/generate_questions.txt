@@ -1,4 +1,4 @@
-Buat {num_questions} soal pilihan ganda (4 opsi) dalam Bahasa Indonesia berdasarkan HANYA konteks materi berikut. Setiap soal harus bisa dijawab langsung dari konteks ini.
+Buat {num_questions} soal pilihan ganda (4 opsi) dalam Bahasa Indonesia berdasarkan HANYA konteks materi berikut. Setiap soal harus bisa dijawab langsung dari konteks ini. Setiap pertanyaan harus berbeda; jangan mengulang pertanyaan yang sama dengan perubahan huruf besar atau spasi.
 
 Konteks materi:
 {context}

@@ -95,3 +95,49 @@ async def test_leaderboard_cache_rebuilds_and_matches_postgres(db):
     assert [e.name for e in entries] == postgres_order
     assert entries[0].score == 90
     assert entries[0].rank == 1
+
+
+async def test_cache_preserves_microsecond_ties_and_replaces_legacy_format(db):
+    cls = _class(db)
+    level = _level(db, cls.id)
+    alice = _user(db, "Alice: A")
+    bob = _user(db, "Bob")
+    now = datetime.now(UTC)
+    _progress(db, alice.id, level.id, 80, now)
+    _progress(db, bob.id, level.id, 80, now - timedelta(microseconds=1))
+    redis = leaderboard_service.get_redis()
+    await redis.zadd(leaderboard_service._redis_key(cls.id), {f"{alice.id}:old name": 80})
+    entries = await leaderboard_service.get_leaderboard(db, cls.id)
+    assert [entry.name for entry in entries] == ["Bob", "Alice: A"]
+    assert [entry.score for entry in entries] == [80, 80]
+
+
+async def test_rebuild_retries_when_score_version_changes(db, monkeypatch):
+    cls = _class(db)
+    level = _level(db, cls.id)
+    alice = _user(db, "Alice")
+    _progress(db, alice.id, level.id, 80, datetime.now(UTC))
+    redis = leaderboard_service.get_redis()
+    original_pipeline = redis.pipeline
+    calls = []
+
+    def pipeline(*args, **kwargs):
+        pipe = original_pipeline(*args, **kwargs)
+        execute = pipe.execute
+
+        async def race(*args, **kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                progress = db.query(Progress).filter_by(user_id=alice.id).one()
+                progress.best_score = 100
+                db.commit()
+                await redis.incr(f"{leaderboard_service._redis_key(cls.id)}:version")
+            return await execute(*args, **kwargs)
+
+        pipe.execute = race
+        return pipe
+
+    monkeypatch.setattr(redis, "pipeline", pipeline)
+    entries = await leaderboard_service.get_leaderboard(db, cls.id)
+    assert entries[0].score == 100
+    assert len(calls) == 2

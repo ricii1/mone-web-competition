@@ -274,3 +274,247 @@ agent: "Dibuat PDF 'Siklus Air' (4 section, topik SD) dengan pymupdf, lalu lewat
 user: (temuan saat pengujian di atas)
 
 agent: "Debugging: unggah PDF gagal dengan `AttributeError: 'list' object has no attribute 'tolist'` di `app/rag/embedding.py`. Penyebab: sentence-transformers 6.x dengan `convert_to_numpy=False` mengembalikan list tensor untuk input batch, bukan satu tensor, sehingga `.tolist()` gagal. Bug ini sudah ada sebelumnya dan tidak berkaitan dengan mode LLM baru. Perbaikan: `convert_to_numpy=True` di `embed_passages` dan `embed_query`. Setelah worker di-restart, material berstatus ready dan generate berjalan."
+
+**10:05**
+user: "commit jadi tiga bagian. Apakah bug bug tadi sudah diperbaiki semua?"
+
+agent: "Tiga commit: tombol Bantuan (`dd3551b`), mode LLM `openai` (`b493305`), perbaikan embedding (`6788fe1`). Jujur dilaporkan bahwa belum semua temuan beres: crash embedding sudah (terbukti), sedangkan soal dengan opsi kembar dan tidak adanya level boss baru dicatat, dan artikel pendek ternyata karena PDF contoh yang pendek."
+
+**10:20**
+user: "coba fixkan 3 bug pertama, yang terakhir coba uji dengan pdf lebih panjang"
+
+agent: "Tiga temuan pertama: (1) crash embedding, sudah diperbaiki sebelumnya; (2) opsi kembar: `GeneratedQuestion` kini menolak opsi yang sama (dinormalisasi `strip().lower()`) lewat `model_validator`, sehingga `call_groq_structured` otomatis retry; test baru `test_generated_question_rejects_duplicate_options`; (3) level boss: ternyata bukan bug. `generate_content.py` menyisipkan boss setiap `LEVELS_PER_BOSS = 4` level dan sengaja tidak setelah level terakhir, jadi 4 section tidak menghasilkan boss. Aturannya didokumentasikan di AGENTS.md. Seluruh suite 89 test lolos, ruff bersih. Untuk temuan terakhir (artikel pendek) dibuat PDF 'Tata Surya' 9 section (± 120-150 kata per section) dan class 'Tes Tata Surya (9 bagian)'. Pengujian sebagian: materi `ready`, level muncul satu per satu, boss muncul setelah level ke-4 (Planet Luar) dan ke-8 (Gerhana). Hasil panjang artikel dicatat pada entri berikutnya."
+
+**10:35**
+user: "oke sambil menunggu semua perubahan ini simpan di @conversation.md dan @AGENTS.md"
+
+agent: "AGENTS.md diperbarui: (bagian 7) catatan `convert_to_numpy=True` untuk embedding batch, mode `LLM_MODE=openai` (httpx, `LlmHttpError`, strip `<think>`, model yang tersedia, perkiraan waktu); (bagian 8) validasi skema soal menolak opsi kembar dan aturan penyisipan boss sesuai implementasi. Tabel stack dan env sudah diperbarui pada commit sebelumnya. conversation.md diperbarui dengan entri di atas."
+
+**11:10**
+user: "berapa lama lagi background berjalan?"
+
+agent (debugging): "Pengecekan menemukan job generate PDF 9 bagian sudah mati, tetapi `classes.generation_status` tetap 'generating' (poller menunggu tanpa akhir). Log worker: `generate_levels_and_questions failed, TimeoutError` setelah tepat 300 detik. Penyebab ganda: (1) `arq` punya `job_timeout` bawaan 300 detik dan `WorkerSettings` tidak mengaturnya; (2) saat timeout, arq membatalkan task dengan `asyncio.CancelledError`, yang bukan subclass `Exception`, sehingga blok `except Exception` di job tidak jalan dan status class tidak pernah menjadi `failed`. Perbaikan: `job_timeout = 1800` di `app/worker/settings.py`, dan job menangkap `(Exception, asyncio.CancelledError)` lalu menandai `failed` dengan pesan 'Waktu pemrosesan habis'. Ruff bersih, 12 test worker lolos (belum ada test khusus timeout). Status class uji direset lewat SQL lalu generate diulang."
+
+**11:20**
+user: (hasil uji PDF panjang, tidak ada prompt baru)
+
+agent: "Generate ulang PDF 'Tata Surya' (9 section) dengan qwen3:14b selesai dalam sekitar 5,5 menit (21:03 sampai 21:08), jadi timeout sebelumnya kemungkinan karena panggilan LLM yang sempat lambat, bukan beban normal. Hasil: 11 level (9 lesson_quiz + 2 boss, boss muncul setelah level ke-4 dan ke-8, boss terakhir tidak ditambahkan setelah level ke-9), 5 soal per level, semuanya valid (4 opsi unik, jawaban ada di opsi). Panjang artikel 218-346 kata, masih di bawah target 450-650. Penyebabnya bukan model: prompt meminta target itu 'jika konteks cukup', dan sumber PDF uji hanya ± 120-150 kata per section, sehingga model setia pada materi dan tidak mengarang (sesuai prinsip AGENTS.md). Untuk menguji target panjang perlu PDF dengan section ±400+ kata."
+
+**11:40**
+user: "apa yang bisa diimprove berdasarkan informasi ini? Jadikan sebagai informasi tambahan di @AGENTS.md"
+
+agent: "Ditambahkan subbagian 'Backlog perbaikan' di akhir bagian 14 AGENTS.md, berisi 9 usulan yang bersumber dari hasil uji nyata (bukan kesepakatan, dikerjakan hanya jika diminta): job macet saat worker restart (selain timeout), artikel pendek bila section PDF pendek (peringatan di UI atau gabung section pendek, tanpa mengarang), boss untuk ekor level, generate paralel terbatas, mematikan mode berpikir qwen3 (belum diverifikasi), validasi kualitas soal, retry/hapus material gagal, rename fungsi 'groq' yang kini netral provider, dan skrip pembuat PDF uji."
+
+**21:21**
+user: "Memberikan instruksi AGENTS.md dan konteks workspace, kemudian mengirim titik (.)."
+
+agent: "Apa yang ingin kamu kerjakan di repo ini?"
+
+**21:21**
+user: "baca AGENTS.md dan cari solusi terhadap masalah yang ada lalu buatkan agent sebagai devops yang menguji keamanan aplikasi dan mencari optimasi performa"
+
+agent: "Membaca seluruh AGENTS.md dan membuat subagent devops_audit untuk audit keamanan/performa dan pengujian lokal. Memberi kabar bahwa perubahan sebelumnya belum di-commit dan dipertahankan. Tinjauan awal menemukan status generate dapat tertinggal setelah worker mati dan limiter LLM belum menghitung setiap retry."
+
+**21:22**
+user: "jangan lupa agar seluruh percakapan dimasukkan ke conversation.md"
+
+agent: "Mengonfirmasi pencatatan semua permintaan dan respons sesi, termasuk audit, pengujian, dan debugging. Menyusun docs/backlog-solutions.md untuk sembilan backlog beserta prioritas, solusi, dan kriteria verifikasi. Tidak mengubah perilaku aplikasi."
+
+**21:23**
+user: "Lanjutan audit dan pengujian dari permintaan sebelumnya."
+
+agent (debugging): "Pytest awal gagal saat conftest mencoba terhubung ke PostgreSQL lokal dalam sandbox (OperationalError). Menjalankan ulang dengan izin di luar sandbox, tetap memakai database test terpisah dan fakeredis: 89 test lolos, 81 warning, 29,89 detik. Ruff backend dan lint frontend lolos. Warning mencakup deprecation TestClient dan panjang kunci HMAC JWT pada runtime test; tidak mencatat nilai secret."
+
+agent: "Memberi pembaruan bahwa reproduksi fakeredis membuktikan dua jawaban live serentak dari murid yang sama sama-sama diterima dan satu menimpa lainnya. Audit juga menemukan fallback polling live belum aktif dan upload membaca seluruh file sebelum cek batas. Laporan DevOps disimpan di docs/devops-audit.md; solusi backlog di docs/backlog-solutions.md. Prioritas: batasi akses Redis, buat submit live atomik, aktifkan polling/reconnect, tutup session DB WebSocket setelah otorisasi, batasi pembacaan upload, pulihkan job macet, dan benahi limiter sebelum paralelisme. Audit selesai; perbaikan kode dan benchmark produksi belum dilakukan."
+
+
+**21:24**
+user: "oke sekarang jadilah senior engineer yang memperbaiki bug bug tersebut"
+
+agent: "Mulai memperbaiki bug keamanan dan keandalan yang terbukti, dengan test backend/frontend dan pencatatan conversation.md. Memakai skill Ponytail untuk solusi sederhana sesuai stack. Fokus: submit live atomik, pemulihan live, batas upload, koneksi DB WebSocket, dan limiter LLM."
+
+**21:28**
+user: "Lanjutan implementasi dari permintaan sebelumnya."
+
+agent: "Memberi pembaruan: submit live memakai transaksi Redis, upload dibaca bertahap, DB ditutup sebelum streaming WebSocket, dan REST live menyediakan soal aktif/status jawaban untuk recovery. Melanjutkan pelacakan job generate, limiter login dan test regresi."
+
+**21:32**
+user: "Lanjutan implementasi dan pengujian."
+
+agent (debugging): "Percobaan pytest pertama dijalankan dari root sehingga konfigurasi asyncio_mode di backend/pyproject.toml tidak terbaca: 27 gagal, 62 lolos, mayoritas test async tidak dijalankan. Menjalankan ulang dari backend memperbaiki konfigurasi runner. Satu assertion enqueue lama diperbarui agar memverifikasi job ID baru yang tersimpan, bukan melemahkan aturan. Setelah perbaikan awal: 109 test lolos."
+
+agent: "Memberi pembaruan bahwa test submit serentak, simpan jawaban saat akhir sesi dan ID soal untuk next lama sudah lolos. Menambahkan pelacakan job agar worker lama tidak menimpa generate baru, dan konfigurasi deployment terpisah dari development."
+
+**21:42**
+user: "Lanjutan verifikasi implementasi."
+
+agent: "Build produksi frontend berhasil dan migrasi 0008 diterapkan ke database lokal. Cache leaderboard memakai transaksi atomik dan versi agar rebuild lama tidak menimpa perubahan skor baru. Memberi pembaruan bahwa deployment memerlukan secret kuat."
+
+**21:44**
+user: "Lanjutan pemeriksaan akhir dan penerapan kode."
+
+agent: "120 pytest lolos (91 warning dari TestClient deprecated dan JWT development pendek), Ruff lint/format lolos, ESLint/TypeScript lolos, dua test realtime Node lolos dan build Next.js lolos. Smoke server standalone sementara: halaman live HTTP 200 dan header keamanan benar. Setelah perubahan penyembunyian input pada error config, tiga test production config juga lolos. Tidak memakai LLM/model embedding nyata dalam test. Konfigurasi Compose production divalidasi tanpa menampilkan env."
+
+agent: "Memberi pembaruan bahwa worker Docker tidak mempunyai job aktif dan akan direstart agar kode job baru berlaku. Worker direstart dan startup berhasil. Port loopback DB/Redis juga diterapkan pada container yang sedang berjalan; volume PostgreSQL dipertahankan. API/worker direstart untuk koneksi baru. API /health sehat dan OpenAPI memuat snapshot live baru; binding DB 127.0.0.1:5433 dan Redis 127.0.0.1:6379 terverifikasi."
+
+**21:46**
+user: "Lanjutan pemeriksaan runtime setelah perubahan port."
+
+agent (debugging): "Saat container Redis dibuat ulang untuk binding loopback, pool worker lama menerima Connection closed by server/Timeout connecting to server. Ini akibat pergantian koneksi server, bukan kegagalan job; sebelumnya tidak ada job aktif. Worker direstart sesudah Redis sehat, lalu log startup kembali normal. API juga direstart dan respons health serta schema baru diverifikasi."
+
+agent: "Perbaikan selesai: body limit sebelum multipart, upload bertahap/signature/cleanup, throttle auth dan batas bcrypt 72 byte; DB WebSocket ditutup setelah auth dan akses live diselaraskan ke peserta; live memakai HSETNX + WATCH, lock kontrol/baris DB, retensi 24 jam, snapshot/polling/reconnect, persistence sebelum cleanup, next dengan ID soal dan notifikasi best effort; limiter LLM menghitung retry; generation tracking/recovery/kompensasi enqueue dengan migrasi; leaderboard atomik/berversi/tie mikrodetik; query publish tetap dua. Override production non-root/standalone tanpa watcher, port DB/Redis atau env backend pada frontend; secret placeholder ditolak. README, AGENTS.md, laporan audit dan conversation.md diperbarui. Perubahan sebelumnya dipertahankan. Image Docker production penuh dan load test belum dijalankan; aturan boss dan optimasi spekulatif tetap usulan."
+
+
+## 2026-10-12
+
+**07:30**
+user: "Tips menulis: ### untuk subjudul, - untuk daftar, **tebal** untuk huruf tebal. ini keknya better di atas sblm kotak artikel ga sih?"
+
+agent: "Memindahkan tips format ke atas kotak artikel pada editor materi guru agar terbaca sebelum menulis; hubungan aria-describedby dipertahankan. npm run lint lolos."
+
+
+**07:31**
+user: "terus kasih opsi murid dan guru juga buat liat langsung pdf yg diunggah"
+
+agent: "Mengonfirmasi tips sudah dipindahkan dan lint lolos. Menambahkan opsi melihat PDF asli di daftar materi guru dan bagian Materi PDF dari guru pada peta murid. API mengembalikan PDF inline hanya bagi pemilik atau murid ter-enroll pada kelas published; token dikirim lewat header. File di kelas lain, lokasi di luar direktori upload kelas dan file hilang ditolak. Viewer memakai browser native, mengambil file saat tombol diklik, punya loading/error dan opsi unduh, membatalkan request serta melepas object URL saat ditutup. Tidak menambah dependency."
+
+**07:33**
+user: "Lanjutan implementasi PDF dari permintaan sebelumnya."
+
+agent: "Memberi pembaruan bahwa PDF guru dan murid sudah tersedia dan hanya dimuat ketika diklik, sementara test memeriksa akses tanpa izin, file hilang dan material lintas kelas. 126 test backend lolos; Ruff lint/format, ESLint dan TypeScript lolos; empat test Node untuk client API/realtime lolos. Build frontend diperiksa setelah perubahan. AGENTS.md dan conversation.md diperbarui."
+
+agent (debugging): "Saat memeriksa client API bersama penambahan respons blob PDF, ditemukan nextLiveQuestion dari perbaikan sebelumnya menerima questionId tetapi belum menuliskannya ke body karena penggantian kode sebelumnya tidak cocok dengan format satu baris. Memperbaiki body JSON agar question_id benar-benar dikirim dan menambahkan test Node yang memeriksa payload request; ini memastikan perlindungan next untuk soal lama bekerja dari UI."
+
+
+**07:35**
+agent: "Verifikasi akhir fitur PDF: 126 pytest lolos, empat test client API/realtime Node lolos, Ruff lint/format, ESLint, TypeScript dan build Next.js lolos. Enam test PDF dijalankan ulang setelah penguatan direktori dan penutupan session DB sebelum transfer file; semuanya lolos. Tersedia tombol Lihat PDF/Tutup PDF serta Unduh PDF untuk perangkat tanpa viewer inline. Tips artikel tetap di atas editor. Seluruh perubahan dan percakapan dicatat, tanpa dependency baru."
+
+agent (debugging): "Satu perintah edit memakai path backend/... ketika cwd sudah backend, sehingga FileNotFoundError dan tidak ada kode berubah. Mengulang dengan cwd root, lalu test PDF dan Ruff lolos."
+
+
+**07:45**
+user: "oke contoh itu pdf rapi kan ya 1 subbab 1 halaman, kalau ga gitu gimana? Coba kita tes"
+
+agent: "Membuat PDF asli topik SD dengan subbab di tengah halaman, beberapa subbab dalam satu halaman, subbab berlanjut lintas halaman, bookmark, font seragam dan teks panjang. Menjalankan parsing/chunking serta job worker asli dengan database test/fakeredis dan embedding/LLM mock; tidak memakai kuota API atau mengubah kelas development."
+
+**07:47**
+agent (debugging): "Tes menemukan batas chunk salah: jalur heading font memasukkan halaman heading berikut sebagai akhir inklusif. PDF rapi tanpa bookmark ikut mengambil materi subbab berikut; PDF campur membuat level Tumbuhan berisi air+tumbuhan+energi. Jalur ToC memakai nomor halaman saja sehingga dua bookmark pada halaman sama menggandakan potongan dan kelanjutan Tumbuhan masuk ke Energi. Penyebabnya tidak ada posisi heading di dalam halaman. Perbaikan yang diperlukan ialah potong berdasarkan posisi judul sampai sebelum judul berikut; belum mengubah parser karena sesi ini berfokus pada pengujian."
+
+**07:49**
+agent: "Pembaruan hasil pipeline sempat tersampaikan dalam bahasa yang salah dan langsung dikoreksi ke Bahasa Indonesia: hasil generate mengonfirmasi level Tumbuhan menerima isi air dan energi. Parsing asli, embedding/LLM tiruan, sehingga tanpa panggilan API dan tanpa perubahan kelas lama. Enam fixture menghasilkan 16 level dan 80 soal draft; kontrol PDF rapi dengan bookmark terpisah benar, tetapi tiga variasi berstruktur menunjukkan isi tercampur. PDF font seragam memakai satu fallback chunk dan teks panjang memakai tiga chunk 500/500/105 kata."
+
+agent (debugging): "Perintah probe pertama memakai path tests/... dari root sehingga file tidak ditemukan; diulang dari backend dengan konfigurasi pytest yang benar. Saat memindahkan probe sementara ke /tmp, Path.rename gagal karena lintas filesystem; memakai shutil.move, kemudian Ruff lint/format bersih. Tidak ada perubahan parser/chunker aplikasi. Generator fixture dan laporan docs/pdf-layout-test.md ditambahkan; PDF/JSON/probe disimpan di /tmp/edumap-pdf-layout-checks."
+
+
+**07:51**
+agent: "Uji selesai: enam fixture dan pipeline offline membuktikan batas materi belum aman untuk PDF campur; bahkan PDF rapi tanpa bookmark punya bug akhir halaman. Solusi yang diperlukan adalah posisi heading, bukan hanya nomor halaman. Laporan dan fixture tersedia. Suite utama tetap 126 test lolos dan Ruff lint/format bersih; test yang ada belum memeriksa isi subbab sehingga tidak menangkap bug ini. Parser/chunker belum diubah."
+
+
+**07:55**
+user: "oke perbaiki bugnya"
+
+agent: "Memperbaiki pembagian berdasarkan posisi judul dan menambahkan test regresi yang memeriksa isi tiap subbab, bukan hanya jumlah level. Sebelum perubahan: lima test baru gagal (font heading rapi/campur, bookmark di halaman sama, alias tujuan bookmark, dan heading multi-span) sementara dua kontrol lolos."
+
+**08:01**
+agent (debugging): "Akar masalah: HeadingSpan tidak menyimpan offset; jalur font-heading memakai halaman berikut sebagai akhir inklusif, dan ToC memotong berdasarkan halaman. Parser kini membangun teks/offset bersama, menggabungkan span heading, dan mengurai tujuan bookmark. Chunker memakai interval offset hingga sebelum judul berikut dan menghitung halaman dari isi aktual. Pengantar dan kelanjutan lintas halaman dipertahankan. Tes awal 14 parsing/chunking/regresi lolos."
+
+agent: "Memberi pembaruan bahwa Air berada di halaman 1, Tumbuhan di halaman 1–2 dan Energi di halaman 2 tanpa campur, lalu melanjutkan tes sampai artikel/soal worker."
+
+**08:04**
+agent: "Dua test worker dengan parsing asli dan embedding/LLM mock memastikan artikel, soal dan source_chunk_id memakai subbab masing-masing. Heading multi-span, heading dua baris, alias bookmark dan bookmark bertingkat ikut lolos. Dokumen tanpa struktur tetap memakai fallback panjang teks. Tidak menggunakan API/model nyata atau mengubah kelas lama."
+
+agent: "138 test backend lolos, Ruff lint/format bersih. Test heading lama diperkuat agar memeriksa isi dan akhir halaman. Keenam PDF lama diperiksa kembali, hasil chunk sesudah patch tersimpan sebagai *.chunks-after.json di /tmp/edumap-pdf-layout-checks. Worker tidak mempunyai job aktif dan direstart untuk memuat parser/chunker baru. AGENTS.md, docs/pdf-layout-test.md dan conversation.md diperbarui. Hasil generate lama tidak otomatis berubah."
+
+
+**08:32**
+user: "oke apalagi yg bisa diimprove?"
+
+agent: "Meninjau kode dan sisa backlog setelah perbaikan PDF. Prioritas baru: simpan urutan chunk secara eksplisit karena generate hanya order_by material.created_at/page_start dan beberapa subbab sekarang dapat berada pada halaman sama; blok publish jika level masih draft (saat ini hanya mengecek soal approved); cegah kehilangan bagian akhir subbab panjang akibat context[:8000]; preview pembagian/sumber sebelum generate; retry/hapus material gagal dengan proteksi referensi; validasi soal duplikat; setelah itu ukur dan coba paralelisme LLM terbatas. Ini rekomendasi, tidak mengubah kode aplikasi. Menyarankan urutan chunk, persetujuan level dan konteks panjang dikerjakan dahulu."
+
+
+**08:33**
+user: "oke eksekusi"
+
+agent: "Mengeksekusi tiga prioritas pertama yang disarankan: urutan subbab tersimpan, persetujuan level sebelum publish, dan sumber panjang tanpa membuang bagian akhir. Mempertahankan perubahan sebelumnya serta mencatat pengujian."
+
+**08:40**
+agent: "Urutan chunk disimpan saat proses PDF melalui order_index. Materi panjang dibaca dalam bagian lengkap, dipadatkan menjadi catatan sumber Pydantic, lalu konteks ringkas yang sama dipakai artikel/soal. Jumlah bagian/panggilan dibatasi dan sumber terlalu besar gagal dengan pesan jelas. Migrasi 0009 diterapkan ke database lokal, tanpa mengubah relasi atau artikel lama."
+
+**08:43**
+agent: "Tes awal membuktikan publish menolak level draft dan job generating; urutan subbab tidak mengikuti insert/UUID; bagian akhir sumber panjang sampai ke konteks artikel/soal. Catatan LLM tetap melalui worker/limiter/retry yang sama. UI menampilkan materi yang belum disetujui."
+
+**08:47**
+agent: "152 test backend lolos, Ruff lint/format bersih, ESLint/TypeScript dan build produksi frontend lolos. Test tambahan menjaga backfill data guru, pemisahan sumber lengkap, batas reduksi, penggunaan konteks yang sama dan urutan subbab pada halaman yang sama. Catatan sumber LLM menggunakan mock dalam test; durasi model nyata belum diukur. Pemeriksaan job aktif sebelum restart worker dan dokumentasi akhir dilanjutkan. Pratinjau pembagian/retry-hapus/soal duplikat belum dikerjakan karena sesi ini mengikuti rekomendasi tiga prioritas pertama."
+
+
+**08:49**
+agent: "Tiga prioritas utama selesai. Migrasi 0009 berada di head, worker direstart setelah job aktif terkonfirmasi nol, startup worker normal dan API health ok. Hasil final: 152 pytest lolos, Ruff lint/format, ESLint/TypeScript dan build Next.js lolos; sepuluh test migration/context dijalankan ulang setelah memperkuat pembacaan data DB dan semuanya lolos. Dokumentasi diperbarui. Sumber panjang memerlukan panggilan catatan tambahan sehingga durasinya bisa bertambah; kualitas detail catatan tetap ditinjau guru. Data lama tidak ditulis ulang otomatis dan tie urutan halaman lama dibackfill stabil berdasarkan ID, bukan dianggap offset asli yang sudah diketahui."
+
+
+**09:00**
+user: "oke sekarang 4-6 eksekusi"
+
+agent: "Melanjutkan tiga rekomendasi: pratinjau pembagian PDF sebelum membuat level, proses ulang/hapus PDF yang gagal dengan perlindungan sumber, dan penolakan pertanyaan duplikat. Semua perubahan sebelumnya dipertahankan."
+
+**09:05**
+user: "oiya opsi hapus kelas blum ada ya? Tambahkan juga hapus kelas"
+
+agent: "Menambahkan Hapus kelas di halaman guru dengan konfirmasi nama kelas. Backend hanya mengizinkan pemilik dan menolak kelas dengan job materi/generate aktif atau kuis bersama yang belum diakhiri. Penghapusan mencakup PDF, level, soal, sumber, progres, enrollment, attempt dan sesi, tetapi tidak akun pengguna atau kelas lain."
+
+**09:13**
+agent: "Endpoint dan UI pratinjau menggunakan chunk yang sudah disimpan, urutan sumber dan rentang halaman. Daftar dibatasi per halaman, cuplikan hanya 400 karakter dan teks lengkap dimuat saat dibuka. PDF gagal dapat diproses ulang/dihapus hanya jika tidak dipakai LevelChunk atau source_chunk_id soal. Migrasi 0010 menambah processing_job_id nullable; setiap enqueue baru memiliki token dan job lama/duplikat tidak boleh menimpa pekerjaan baru."
+
+**09:17**
+agent (debugging): "Test penghapusan kelas lengkap menemukan fixture fakeredis digunakan dari loop pytest lalu loop TestClient sehingga penghapusan cache gagal dengan 'bound to a different event loop'. Test service/cache sekarang berjalan dalam satu loop, sedangkan keberhasilan dan otorisasi endpoint diuji terpisah. Assertion penghapusan cache, data, akun yang tetap ada dan pemulihan file tetap dipertahankan. Penguncian upload juga dipindah setelah stream selesai, supaya tidak memegang lock database saat await file dan tidak memacetkan request penghapusan bersamaan."
+
+**09:20**
+agent: "Tiga rekomendasi 4–6 dan hapus kelas selesai: 175 pytest lolos, Ruff lint/format bersih, ESLint/TypeScript dan build Next.js lolos, empat test frontend lama juga lolos. Test baru mencakup pagination/izin sumber, enqueue gagal, token job lama, pembatalan worker, referensi sumber, penolakan job/sesi aktif, transaksi gagal yang mengembalikan file, pelarian symlink, penghapusan kelas lengkap dan duplikat AI yang memicu retry maksimal dua kali. Migrasi 0010 diterapkan; worker direstart setelah job aktif nol dan startup normal; API health ok. Notifikasi Redis gagal tidak lagi mengubah material ready menjadi failed."
+
+**09:21**
+user: "weh coba cek kolom bantuan, kepotong bagian bantuannya. Bantuannya dibuat interaktif gimana"
+
+agent: "Memeriksa HelpButton dan header, mereproduksi panel terpotong dengan browser pada lebar HP. Melanjutkan perbaikan menjadi panduan per langkah yang dapat dinavigasi, sambil menjaga mode guru/murid dan akses keyboard."
+
+**09:26**
+agent (debugging): "Bug bantuan direproduksi dengan Chrome pada lebar 360px. Overlay fixed di dalam header backdrop-blur ternyata hanya setinggi 64px; panel berada di y=-524,8 hingga y=64. Filter header menjadi containing block. Mengganti overlay menjadi dialog native showModal yang berada di lapisan modal browser, dengan 100dvh/safe area dan isi yang bisa digulir. Tidak perlu mengganti desain header atau memasang dependency."
+
+**09:34**
+agent: "Bantuan diubah menjadi enam langkah yang bisa dipilih untuk guru/murid, penanda Sudah paham per mode, tautan halaman terkait dan FAQ yang bisa dibuka. Header/tutup serta navigasi bawah dibuat tetap terlihat. Panduan guru kini menjelaskan pratinjau sumber dan persetujuan materi serta soal sebelum publish. Penanda memakai state lokal komponen dan tidak mengubah progres/kuis."
+
+agent (debugging): "Harness browser sempat memakai label Teacher/Student padahal UI Guru/Murid, lalu menganggap tombol Sudah paham selalu belum ditekan saat bantuan dibuka ulang. Harness disesuaikan untuk label UI dan toggle state yang bertahan selama halaman aktif. Perilaku native Tab ke chrome/address bar dibedakan dari fokus pada halaman belakang; kontrol halaman belakang tetap inert. Assertion geometri, kontrol dan penutupan tetap diuji."
+
+**09:39**
+agent (debugging): "Delapan kasus browser lolos, tetapi screenshot menunjukkan posisi gulir lama ikut terbawa saat bantuan dibuka ulang sementara state langkah direset ke satu. Menambahkan panelRef untuk mengembalikan scrollTop ke nol saat buka/ganti mode dan fokus tutup memakai preventScroll. Assertion scrollTop awal nol ditambahkan; kedelapan kasus guru/murid di 320×568, 360×640, 800×360 dan 1280×800 kembali lolos."
+
+agent: "Menjaga satu kasus tambahan worker lama: material ready dengan job tanpa token yang sumbernya sudah dipakai level tidak boleh diubah menjadi failed atau ditimpa jika job lama dijalankan ulang. Worker kini melewati material itu tanpa parsing; test memeriksa status ready, isi chunk dan relasi sumber tetap utuh. Verifikasi akhir dan dokumentasi dilanjutkan."
+
+
+**09:49**
+agent (debugging): "Perintah awal sempat memakai python yang tidak tersedia dalam shell dan prefix backend/frontend saat cwd sudah berada di folder tersebut. Perintah diulang dengan binary conda dan path absolut; tidak ada file pengguna yang dihapus. Pada pemeriksaan dropdown browser, deklarasi const di Runtime.evaluate sempat dipakai ulang dalam konteks yang sama; harness dibungkus IIFE agar dapat memeriksa tiap viewport. Ini masalah perintah/harness, bukan bug aplikasi."
+
+agent: "Seluruh tugas selesai: pratinjau pembagian PDF, proses ulang/hapus PDF gagal, pertanyaan unik, hapus kelas dengan konfirmasi nama, dan bantuan interaktif yang tidak keluar layar. Bantuan HP memakai dropdown agar teks lebih lapang; desktop memakai tombol nomor. Buka ulang/ganti mode mereset guliran; navigasi/tutup tetap terlihat; FAQ, penanda dan tautan tersedia. Verifikasi akhir: 176 pytest lolos, Ruff lint/format bersih, ESLint/TypeScript dan build Next.js lolos, serta delapan kasus Chrome guru/murid pada empat ukuran layar lolos. Migrasi 0010 head, job aktif/antrean nol sebelum restart worker, startup worker normal dan API health ok. Semua test data menggunakan database terpisah dan model mock. AGENTS.md, README.md, docs/help-ui-check.md, laporan backlog dan conversation.md diperbarui. Tidak melakukan commit atau menghapus kelas development."
+
+
+## 13 Oktober 2026
+
+**11:45**
+user: "Minta saran nama aplikasi dan domain .my.id; nama EduMap boleh diganti."
+
+agent: "Menyarankan PetaPintar, JejakCerdas, HooBelajar, dan PetaCeria berdasarkan sasaran guru/murid SD, peta level dan maskot Bu Hoo. Pencarian web menemukan EduMap sudah digunakan produk pendidikan lain dan Jelajah Ilmu sudah menjadi platform pendidikan Indonesia. Pilihan utama PetaPintar untuk kejelasan konsep, HooBelajar untuk identitas maskot. Domain masih berupa kandidat; ketersediaan registrasi belum diverifikasi. Nama aplikasi/kode belum diubah karena pengguna baru meminta saran."
+
+## 15 Oktober 2026
+
+**14:43**
+user: "bisakah anda siapkan deploymentnya berdasarkan panduan cara deploy di dokploy.pdf"
+
+**14:51**
+agent: "Membaca PDF panduan panitia dan dokumentasi resmi Dokploy. Menyiapkan docker-compose.dokploy.yml standalone untuk frontend Next.js production, API FastAPI, worker arq, PostgreSQL pgvector dan Redis dengan AOF. Menambahkan .env.dokploy.example tanpa secret, panduan docs/deploy-dokploy.md, dan tautan README. Perbedaan dari PDF dijelaskan: contoh Application/Nixpacks perlu diganti service Docker Compose agar seluruh stack berjalan. Panduan mengatur Isolated Deployments, dua domain HTTPS/WSS, environment, migrasi, penyimpanan, deploy dan uji fungsi. Konfigurasi belum dikirim ke server; domain dan izin Compose panitia belum diketahui, sehingga memakai placeholder. Perubahan lama pengguna dipertahankan tanpa commit."
+
+agent (debugging): "Pytest awal memuat plugin ROS dari environment global dan gagal karena lark tidak tersedia. Menjalankan ulang dengan plugin autoload dimatikan dan pytest_asyncio eksplisit. Suite kemudian terhalang koneksi PostgreSQL lokal port 5433; percobaan di luar sandbox memastikan Connection refused, bukan hanya pembatasan sandbox. Tidak mengubah test atau database development. Tiga test production config dijalankan terpisah tanpa conftest database dan lolos."
+
+agent: "Validasi Compose 5.0.2 lolos dengan nilai uji: lima service, tanpa port host atau bind mount kode, frontend tanpa secret, build non-root production, dependensi startup dan persistensi benar. Lima env wajib masing-masing ditolak jika hilang. Ruff dan ESLint lolos; git diff --check bersih. Build image/deployment server dan suite backend lengkap belum terverifikasi karena akses deployment belum tersedia dan PostgreSQL lokal tidak berjalan."
+
+**14:56**
+user: "commit dan push"
+
+agent: "Memeriksa branch main dan remote origin, mengambil state remote terbaru, dan memastikan tidak ada commit remote yang tertinggal di lokal. Menyiapkan commit perubahan aplikasi dari sesi sebelumnya dan commit konfigurasi Dokploy secara terpisah, dengan tujuan push origin/main beserta 25 commit lokal sebelumnya. Pemeriksaan pola secret pada file teks berubah dan git diff --check bersih. File .env tetap di-ignore dan PDF panduan lokal tidak disertakan. Hasil validasi/test deployment tetap mengikuti catatan sebelumnya; tidak mengklaim suite database lolos."

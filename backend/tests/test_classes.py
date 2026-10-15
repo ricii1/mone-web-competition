@@ -102,3 +102,68 @@ def test_invite_code_hidden_from_non_owner(client):
     other_token = _register(client, "teacher4@example.com", "teacher")
     resp = client.get(f"/api/v1/classes/{class_id}", headers=_auth(other_token))
     assert resp.json()["invite_code"] is None
+
+
+def test_publish_requires_both_lesson_and_question_approval(client, db):
+    import uuid
+
+    from app.models.class_ import Class
+    from app.models.level import Level, LevelStatus, LevelType
+    from app.models.question import Question, QuestionStatus
+
+    token = _register(client, "review@example.com", "teacher")
+    class_id = client.post(
+        "/api/v1/classes", json={"title": "Air", "visibility": "public"}, headers=_auth(token)
+    ).json()["id"]
+    level = Level(
+        class_id=uuid.UUID(class_id), title="Sumber Air", type=LevelType.lesson_quiz, order_index=0
+    )
+    db.add(level)
+    db.commit()
+    question = Question(
+        level_id=level.id,
+        question_text="Apa?",
+        options=["A", "B", "C", "D"],
+        correct_answer="A",
+        status=QuestionStatus.approved,
+    )
+    db.add(question)
+    db.commit()
+    response = client.post(f"/api/v1/classes/{class_id}/publish", headers=_auth(token))
+    assert response.status_code == 400
+    assert "materi belum disetujui" in response.json()["detail"]
+    assert db.get(Class, uuid.UUID(class_id)).status.value == "draft"
+    assert (
+        client.patch(
+            f"/api/v1/levels/{level.id}", json={"status": "approved"}, headers=_auth(token)
+        ).status_code
+        == 200
+    )
+    question.status = QuestionStatus.draft
+    db.commit()
+    response = client.post(f"/api/v1/classes/{class_id}/publish", headers=_auth(token))
+    assert response.status_code == 400
+    assert "soal yang disetujui" in response.json()["detail"]
+    question.status = QuestionStatus.approved
+    db.commit()
+    assert level.status == LevelStatus.approved
+    assert (
+        client.post(f"/api/v1/classes/{class_id}/publish", headers=_auth(token)).status_code == 200
+    )
+
+
+def test_publish_rejects_running_generation(client, db):
+    import uuid
+
+    from app.models.class_ import Class, GenerationStatus
+
+    token = _register(client, "running@example.com", "teacher")
+    class_id = client.post(
+        "/api/v1/classes", json={"title": "Air", "visibility": "public"}, headers=_auth(token)
+    ).json()["id"]
+    cls = db.get(Class, uuid.UUID(class_id))
+    cls.generation_status = GenerationStatus.generating
+    db.commit()
+    assert (
+        client.post(f"/api/v1/classes/{class_id}/publish", headers=_auth(token)).status_code == 400
+    )

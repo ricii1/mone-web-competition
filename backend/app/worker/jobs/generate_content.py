@@ -1,10 +1,15 @@
+import asyncio
 from uuid import UUID
+
+from redis.asyncio import Redis
+from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.class_ import Class, GenerationStatus
 from app.models.level import Level, LevelChunk, LevelType
 from app.models.material import Material, MaterialChunk, VectorStatus
 from app.models.question import Question, QuestionStatus
+from app.rag.context import prepare_source_context
 from app.rag.llm import call_groq_structured, load_prompt
 from app.realtime.channels import class_channel
 from app.realtime.events import GenerationProgressPayload, LevelCreatedPayload, RealtimeEvent
@@ -20,10 +25,6 @@ from app.services.level_service import (
     delete_draft_levels,
     has_approved_level,
 )
-
-# About 2000 tokens of context per call: enough for a whole section (the lesson article is
-# written from it) while keeping Groq token usage per level bounded.
-MAX_CONTEXT_CHARS = 8000
 
 
 async def _publish_stage(
@@ -43,7 +44,7 @@ async def _publish_stage(
 
 
 def _set_generation_state(
-    db, class_id: UUID, status: GenerationStatus, error: str | None = None
+    db: Session, class_id: UUID, status: GenerationStatus, error: str | None = None
 ) -> None:
     cls = db.get(Class, class_id)
     if cls is None:
@@ -53,24 +54,29 @@ def _set_generation_state(
     db.commit()
 
 
-async def _write_lesson(redis, content: str) -> GeneratedLevelLesson:
-    prompt = load_prompt("lesson_level").format(context=content[:MAX_CONTEXT_CHARS])
+async def _write_lesson(redis: Redis, content: str) -> GeneratedLevelLesson:
+    context = await prepare_source_context(redis, content)
+    prompt = load_prompt("lesson_level").format(context=context)
     result: GeneratedLevelLesson = await call_groq_structured(
         redis, load_prompt("system_tutor"), prompt, GeneratedLevelLesson
     )
     return result
 
 
-async def _summarize(redis, content: str) -> GeneratedLevelSummary:
-    prompt = load_prompt("summarize_level").format(context=content[:MAX_CONTEXT_CHARS])
+async def _summarize(redis: Redis, content: str) -> GeneratedLevelSummary:
+    context = await prepare_source_context(redis, content)
+    prompt = load_prompt("summarize_level").format(context=context)
     result: GeneratedLevelSummary = await call_groq_structured(
         redis, load_prompt("system_tutor"), prompt, GeneratedLevelSummary
     )
     return result
 
 
-async def _generate_questions(db, redis, level: Level, chunks: list[MaterialChunk]) -> None:
-    context = "\n\n".join(c.content for c in chunks)[:MAX_CONTEXT_CHARS]
+async def _generate_questions(
+    db: Session, redis: Redis, level: Level, chunks: list[MaterialChunk], context: str | None = None
+) -> None:
+    if context is None:
+        context = await prepare_source_context(redis, "\n\n".join(c.content for c in chunks))
     prompt = load_prompt("generate_questions").format(
         num_questions=QUESTIONS_PER_LEVEL, context=context
     )
@@ -93,7 +99,9 @@ async def _generate_questions(db, redis, level: Level, chunks: list[MaterialChun
     db.commit()
 
 
-async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
+async def generate_levels_and_questions(
+    ctx: dict, class_id: str, generation_job_id: str | None = None
+) -> None:
     """Job arq: buat draft level + soal dari material yang sudah ready.
 
     Idempotent: refuses if any level is approved, otherwise replaces all draft levels.
@@ -103,6 +111,13 @@ async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
     redis = get_redis()
     try:
         class_id_uuid = UUID(class_id)
+        cls = db.get(Class, class_id_uuid)
+        if generation_job_id is not None and (
+            cls is None
+            or cls.generation_job_id != generation_job_id
+            or cls.generation_status != GenerationStatus.generating
+        ):
+            return
         if has_approved_level(db, class_id_uuid):
             raise ValueError("Class sudah punya level yang disetujui; tidak bisa digenerate ulang")
         _set_generation_state(db, class_id_uuid, GenerationStatus.generating)
@@ -114,7 +129,13 @@ async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
             .filter(
                 Material.class_id == class_id_uuid, Material.vector_status == VectorStatus.ready
             )
-            .order_by(Material.created_at, MaterialChunk.page_start)
+            .order_by(
+                Material.created_at,
+                Material.id,
+                MaterialChunk.order_index,
+                MaterialChunk.page_start,
+                MaterialChunk.id,
+            )
             .all()
         )
         if not chunks:
@@ -126,9 +147,11 @@ async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
         prev_level_id = None
         boss_group: list[MaterialChunk] = []
         boss_count = 0
+        boss_contexts: list[str] = []
 
         for idx, chunk in enumerate(chunks):
-            lesson = await _write_lesson(redis, chunk.content)
+            context = await prepare_source_context(redis, chunk.content)
+            lesson = await _write_lesson(redis, context)
             level = Level(
                 class_id=class_id_uuid,
                 prerequisite_id=prev_level_id,
@@ -158,16 +181,18 @@ async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
                 ),
             )
             await _publish_stage(class_id, "generating_questions", idx + 1, len(chunks))
-            await _generate_questions(db, redis, level, [chunk])
+            await _generate_questions(db, redis, level, [chunk], context=context)
 
             prev_level_id = level.id
             order_index += 1
             boss_group.append(chunk)
+            boss_contexts.append(context)
 
             is_last = idx == len(chunks) - 1
             if len(boss_group) >= LEVELS_PER_BOSS and not is_last:
                 boss_count += 1
-                boss_lesson = await _summarize(redis, "\n\n".join(c.content for c in boss_group))
+                boss_context = await prepare_source_context(redis, "\n\n".join(boss_contexts))
+                boss_lesson = await _summarize(redis, boss_context)
                 boss_level = Level(
                     class_id=class_id_uuid,
                     prerequisite_id=prev_level_id,
@@ -196,17 +221,24 @@ async def generate_levels_and_questions(ctx: dict, class_id: str) -> None:
                         ).model_dump(),
                     ),
                 )
-                await _generate_questions(db, redis, boss_level, boss_group)
+                await _generate_questions(db, redis, boss_level, boss_group, context=boss_context)
 
                 prev_level_id = boss_level.id
                 order_index += 1
                 boss_group = []
+                boss_contexts = []
 
         _set_generation_state(db, class_id_uuid, GenerationStatus.done)
         await _publish_stage(class_id, "done", len(chunks), len(chunks))
-    except Exception as exc:
+    except (Exception, asyncio.CancelledError) as exc:
+        # arq cancels the task on job_timeout; CancelledError is not an Exception, so catch it
+        # explicitly or the class would stay stuck in "generating" forever.
         db.rollback()
-        message = str(exc) or "Generate level gagal"
+        message = str(exc) or (
+            "Waktu pemrosesan habis"
+            if isinstance(exc, asyncio.CancelledError)
+            else "Generate level gagal"
+        )
         try:
             _set_generation_state(db, UUID(class_id), GenerationStatus.failed, message)
         finally:

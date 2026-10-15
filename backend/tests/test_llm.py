@@ -89,3 +89,52 @@ def test_openai_call_exposes_status_for_rate_limit(monkeypatch):
         llm_module._call_groq_sync("system", "user")
 
     assert exc_info.value.status_code == 429
+
+
+def test_generated_question_rejects_duplicate_options():
+    from pydantic import ValidationError
+
+    from app.schemas.generation import GeneratedQuestion
+
+    with pytest.raises(ValidationError):
+        GeneratedQuestion(
+            question_text="Apa?",
+            options=["Penguapan", "Pembekuan", "Pengembunan", " penguapan "],
+            correct_answer="Pengembunan",
+            explanation="Karena.",
+        )
+
+
+async def test_rate_limit_reacquires_after_wait(monkeypatch, redis):
+    import asyncio
+
+    clock = [120.0]
+    monkeypatch.setattr(llm_module.time, "time", lambda: clock[0])
+    monkeypatch.setattr(llm_module, "GROQ_MAX_CALLS_PER_MINUTE", 1)
+    await llm_module._acquire_rate_limit_slot(redis)
+
+    async def sleep(seconds):
+        clock[0] += seconds
+
+    monkeypatch.setattr(asyncio, "sleep", sleep)
+    await llm_module._acquire_rate_limit_slot(redis)
+    assert await redis.get("groq:calls:3") == "1"
+
+
+async def test_rate_limit_counts_each_429_retry(monkeypatch, redis):
+    from unittest.mock import AsyncMock
+
+    clock = 120.0
+    monkeypatch.setattr(llm_module.time, "time", lambda: clock)
+    monkeypatch.setattr(llm_module.asyncio, "sleep", AsyncMock())
+    calls = []
+
+    def call(*args):
+        calls.append(1)
+        if len(calls) == 1:
+            raise llm_module.LlmHttpError(429, "busy")
+        return "ok"
+
+    monkeypatch.setattr(llm_module, "_call_groq_sync", call)
+    assert await llm_module.call_groq_with_backoff(redis, "system", "user") == "ok"
+    assert await redis.get("groq:calls:2") == "2"

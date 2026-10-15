@@ -1,0 +1,13 @@
+Susun catatan sumber ringkas dalam Bahasa Indonesia dari SELURUH bagian materi berikut. Catatan ini menjadi konteks untuk membuat artikel dan soal murid SD.
+
+- HANYA gunakan fakta dari konteks. Jangan menambah pengetahuan, angka, contoh, atau kesimpulan dari luar materi.
+- Baca dari awal sampai akhir. Pertahankan gagasan penting, definisi, hubungan sebab-akibat, dan langkah yang ada pada bagian awal, tengah, serta akhir.
+- Jangan menghapus gagasan akhir hanya karena materi panjang. Hilangkan pengulangan dan kata pengantar agar catatan muat.
+- Jangan mencampurkan atau menyamakan konsep berbeda. Jika konteks tidak cukup, nyatakan keterbatasannya.
+- Maksimal {max_notes_chars} karakter pada nilai "notes". Pakai kalimat singkat atau poin-poin.
+
+Konteks materi:
+{context}
+
+Kembalikan HANYA JSON valid dengan skema berikut, tanpa teks lain:
+{{"notes": "catatan hanya dari sumber"}}

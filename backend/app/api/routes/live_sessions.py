@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.live_session import (
     LiveAnswerRequest,
     LiveJoinRequest,
+    LiveNextRequest,
     LiveSessionCreateRequest,
     LiveSessionResponse,
 )
@@ -54,9 +55,9 @@ def _require_host(db: Session, session_id: UUID, teacher: User) -> LiveSession:
 
 
 @router.get("/api/v1/live-sessions/{session_id}", response_model=LiveSessionResponse)
-def get_live_session(
+async def get_live_session(
     session_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)
-) -> LiveSession:
+) -> LiveSessionResponse:
     session = live_session_service.get_session_or_404(db, session_id)
     is_host = session.host_id == user.id
     is_participant = (
@@ -69,11 +70,14 @@ def get_live_session(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Tidak punya akses ke sesi ini"
         )
-    return session
+    snapshot = await live_session_service.session_snapshot(db, session, user.id)
+    return LiveSessionResponse.model_validate(
+        LiveSessionResponse.model_validate(session).model_dump() | snapshot
+    )
 
 
 @router.post("/api/v1/live-sessions/{session_id}/join", status_code=status.HTTP_204_NO_CONTENT)
-def join_live_session(
+async def join_live_session(
     session_id: UUID,
     body: LiveJoinRequest,
     student: User = Depends(require_student),
@@ -83,6 +87,7 @@ def join_live_session(
     if not class_service.is_enrolled(db, student.id, session.class_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Belum join class ini")
     live_session_service.join_session(db, session, student.id, body.join_code)
+    await live_session_service._publish(session.id, "participant_joined", {})
 
 
 @router.post("/api/v1/live-sessions/{session_id}/start", status_code=status.HTTP_204_NO_CONTENT)
@@ -95,10 +100,15 @@ async def start_live_session(
 
 @router.post("/api/v1/live-sessions/{session_id}/next", status_code=status.HTTP_204_NO_CONTENT)
 async def next_question(
-    session_id: UUID, teacher: User = Depends(require_teacher), db: Session = Depends(get_db)
+    session_id: UUID,
+    body: LiveNextRequest | None = None,
+    teacher: User = Depends(require_teacher),
+    db: Session = Depends(get_db),
 ) -> None:
     session = _require_host(db, session_id, teacher)
-    await live_session_service.close_current_question(db, session)
+    await live_session_service.close_current_question(
+        db, session, question_id=body.question_id if body else None
+    )
 
 
 @router.post("/api/v1/live-sessions/{session_id}/end", status_code=status.HTTP_204_NO_CONTENT)

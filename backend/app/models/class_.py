@@ -45,6 +45,8 @@ class Class(UUIDPKMixin, TimestampMixin, Base):
         default=GenerationStatus.idle,
         server_default="idle",
     )
+    generation_job_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    generation_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     generation_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 

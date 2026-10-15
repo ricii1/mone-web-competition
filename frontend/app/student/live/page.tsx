@@ -46,6 +46,8 @@ export default function StudentLivePage() {
   const [now, setNow] = useState(() => Date.now() / 1000);
   const [error, setError] = useState<string | null>(null);
   const answeredRef = useRef(false);
+  const questionIdRef = useRef<string | null>(null);
+  const sessionId = session?.id;
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
@@ -63,25 +65,36 @@ export default function StudentLivePage() {
   }
 
   useEffect(() => {
-    if (!session) return;
-    return connectRealtime(`/ws/live/${session.id}`, (event) => {
-      if (event.type !== "live_session_update") return;
-      const payload = event.payload as Record<string, unknown>;
-      if (payload.kind === "question_started") {
-        answeredRef.current = false;
-        setMyAnswer(null);
-        setClosed(null);
-        setError(null);
-        setQuestion(payload as unknown as ActiveQuestion);
-      } else if (payload.kind === "question_closed") {
-        const c = payload as unknown as ClosedQuestion;
-        setClosed(c);
-        if (c.finished) setEnded(true);
-      } else if (payload.kind === "session_ended") {
-        setEnded(true);
+    if (!sessionId) return;
+    let disposed = false;
+    let version = 0;
+    async function refresh() {
+      const requestVersion = ++version;
+      try {
+        const snapshot = await api.getLiveSession(sessionId!);
+        if (disposed || requestVersion !== version) return;
+        if (questionIdRef.current !== snapshot.question?.question_id) {
+          questionIdRef.current = snapshot.question?.question_id ?? null;
+          answeredRef.current = snapshot.my_answer !== null;
+          setMyAnswer(snapshot.my_answer);
+          setError(null);
+        } else if (snapshot.my_answer !== null) {
+          answeredRef.current = true;
+          setMyAnswer(snapshot.my_answer);
+        }
+        setQuestion(snapshot.question);
+        setClosed(snapshot.closed_question);
+        setEnded(snapshot.status === "finished");
+        setNow(Date.now() / 1000);
+      } catch (err) {
+        if (!disposed) setError(err instanceof ApiError ? err.message : "Kuis belum bisa dimuat. Kami mencoba lagi.");
       }
-    });
-  }, [session]);
+    }
+    const disconnect = connectRealtime(`/ws/live/${sessionId}`, (event) => {
+      if (event.type === "live_session_update") void refresh();
+    }, () => { void refresh(); });
+    return () => { disposed = true; disconnect(); };
+  }, [sessionId]);
 
   const running = !!question && !closed;
   useEffect(() => {
@@ -97,7 +110,9 @@ export default function StudentLivePage() {
     try {
       await api.answerLiveQuestion(session.id, question.question_id, option);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Jawabanmu belum terkirim.");
+      answeredRef.current = false;
+      setMyAnswer(null);
+      setError(err instanceof ApiError ? err.message : "Jawabanmu belum terkirim. Coba lagi ya.");
     }
   }
 

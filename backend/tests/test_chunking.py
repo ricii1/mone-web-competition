@@ -26,6 +26,9 @@ def test_chunk_by_font_headings_when_no_toc():
     )
     chunks = chunk_parsed_pdf(parsed)
     assert [c.section_title for c in chunks] == ["Judul Satu", "Judul Dua"]
+    assert chunks[0].content == parsed.pages[0]
+    assert chunks[1].content == parsed.pages[1]
+    assert chunks[0].page_end == 0
 
 
 def test_chunk_fixed_size_fallback_when_no_structure():

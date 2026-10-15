@@ -11,6 +11,7 @@ from app.models.user import User
 from app.schemas.level import LevelResponse, LevelUpdateRequest
 from app.services import class_service, level_service
 from app.worker.queue import get_arq_pool
+from app.worker.recovery import mark_generation_failed, recover_generation
 
 router = APIRouter(tags=["levels"])
 
@@ -22,10 +23,25 @@ async def generate_levels(
     cls = class_service.get_class_or_404(db, class_id)
     class_service.require_owner(cls, teacher)
 
-    level_service.request_generation(db, cls)
-
-    pool = await get_arq_pool()
-    await pool.enqueue_job("generate_levels_and_questions", str(class_id))
+    try:
+        pool = await get_arq_pool()
+        await recover_generation(db, cls, pool)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail="Antrean belum tersedia. Coba lagi sebentar"
+        ) from exc
+    job_id = level_service.request_generation(db, cls)
+    try:
+        queued = await pool.enqueue_job(
+            "generate_levels_and_questions", str(class_id), job_id, _job_id=job_id
+        )
+        if queued is None:
+            raise RuntimeError("Generation job was not queued")
+    except Exception as exc:
+        mark_generation_failed(db, cls.id, job_id, "Antrean belum tersedia. Coba lagi sebentar")
+        raise HTTPException(
+            status_code=503, detail="Antrean belum tersedia. Coba lagi sebentar"
+        ) from exc
     return {"status": "queued"}
 
 

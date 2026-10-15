@@ -11,16 +11,20 @@ from app.api.routes import (
     progress,
     questions,
 )
+from app.core.body_limit import BodyLimitMiddleware
 from app.core.config import settings
 from app.realtime import ws
 
 app = FastAPI(title="EduMap API")
 
+app.add_middleware(BodyLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     # loopback on any port, so localhost and 127.0.0.1 both work in dev
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=(
+        r"^http://(localhost|127\.0\.0\.1)(:\d+)?$" if settings.app_env != "production" else None
+    ),
     allow_methods=["*"],
     allow_headers=["*"],
 )

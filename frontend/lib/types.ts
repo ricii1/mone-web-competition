@@ -107,6 +107,16 @@ export interface LeaderboardEntry {
 
 export type LiveSessionStatus = "waiting" | "running" | "finished";
 
+export interface LiveQuestion {
+  question_id: string;
+  question_text: string;
+  options: string[];
+  index: number;
+  total: number;
+  deadline: number;
+  time_limit_seconds: number;
+}
+
 export interface LiveSession {
   id: string;
   class_id: string;
@@ -115,5 +125,32 @@ export interface LiveSession {
   join_code: string;
   status: LiveSessionStatus;
   current_question_index: number;
+  question: LiveQuestion | null;
+  closed_question: {
+    question_id: string;
+    correct_answer: string;
+    distribution: Record<string, number>;
+    finished: boolean;
+  } | null;
+  my_answer: string | null;
+  participants: { user_id: string; name: string; score: number }[];
 }
 
+
+
+export interface MaterialSection {
+  id: string;
+  section_title: string | null;
+  order_index: number;
+  page_start: number;
+  page_end: number;
+  excerpt: string;
+  character_count: number;
+}
+
+export interface MaterialSectionsResponse {
+  sections: MaterialSection[];
+  total: number;
+  offset: number;
+  limit: number;
+}

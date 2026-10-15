@@ -4,6 +4,7 @@ import type {
   Level,
   LiveSession,
   Material,
+  MaterialSectionsResponse,
   Progress,
   Question,
   QuizSubmitResult,
@@ -23,7 +24,7 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, responseType: "json" | "blob" = "json"): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -37,7 +38,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(res.status, body.detail ?? "Terjadi kesalahan");
   }
   if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
+  return (responseType === "blob" ? res.blob() : res.json()) as Promise<T>;
 }
 
 async function uploadFile<T>(path: string, file: File): Promise<T> {
@@ -79,6 +80,8 @@ export const api = {
     }),
   publishClass: (classId: string) =>
     request<SchoolClass>(`/api/v1/classes/${classId}/publish`, { method: "POST" }),
+  deleteClass: (classId: string, confirmTitle: string) =>
+    request<void>(`/api/v1/classes/${classId}`, { method: "DELETE", body: JSON.stringify({ confirm_title: confirmTitle }) }),
   joinClass: (classId: string, inviteCode?: string) =>
     request<void>(`/api/v1/classes/${classId}/join`, {
       method: "POST",
@@ -86,6 +89,16 @@ export const api = {
     }),
 
   listMaterials: (classId: string) => request<Material[]>(`/api/v1/classes/${classId}/materials`),
+  getMaterialPdf: (classId: string, materialId: string, signal?: AbortSignal) =>
+    request<Blob>(`/api/v1/classes/${classId}/materials/${materialId}/file`, { signal }, "blob"),
+  listMaterialSections: (classId: string, materialId: string, offset = 0, signal?: AbortSignal) =>
+    request<MaterialSectionsResponse>(`/api/v1/classes/${classId}/materials/${materialId}/sections?offset=${offset}&limit=10`, { signal }),
+  getMaterialSection: (classId: string, materialId: string, chunkId: string, signal?: AbortSignal) =>
+    request<{ id: string; content: string }>(`/api/v1/classes/${classId}/materials/${materialId}/sections/${chunkId}`, { signal }),
+  retryMaterial: (classId: string, materialId: string) =>
+    request<Material>(`/api/v1/classes/${classId}/materials/${materialId}/retry`, { method: "POST" }),
+  deleteMaterial: (classId: string, materialId: string) =>
+    request<void>(`/api/v1/classes/${classId}/materials/${materialId}`, { method: "DELETE" }),
   uploadMaterial: (classId: string, file: File) =>
     uploadFile<Material>(`/api/v1/classes/${classId}/materials`, file),
 
@@ -144,8 +157,11 @@ export const api = {
     }),
   startLiveSession: (sessionId: string) =>
     request<void>(`/api/v1/live-sessions/${sessionId}/start`, { method: "POST" }),
-  nextLiveQuestion: (sessionId: string) =>
-    request<void>(`/api/v1/live-sessions/${sessionId}/next`, { method: "POST" }),
+  nextLiveQuestion: (sessionId: string, questionId?: string) =>
+    request<void>(`/api/v1/live-sessions/${sessionId}/next`, {
+      method: "POST",
+      body: JSON.stringify({ question_id: questionId }),
+    }),
   endLiveSession: (sessionId: string) =>
     request<void>(`/api/v1/live-sessions/${sessionId}/end`, { method: "POST" }),
   answerLiveQuestion: (sessionId: string, questionId: string, answer: string) =>

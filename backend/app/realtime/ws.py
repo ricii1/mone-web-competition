@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token
 from app.db.session import SessionLocal
-from app.models.live_session import LiveSession
+from app.models.live_session import LiveParticipant, LiveSession
 from app.models.material import Material
 from app.models.user import User
 from app.realtime.channels import class_channel, live_session_channel, material_channel
@@ -54,10 +54,10 @@ async def material_progress_ws(
             await websocket.close(code=4403)
             return
 
-        await websocket.accept()
-        await _forward_channel(websocket, material_channel(material_id))
     finally:
         db.close()
+    await websocket.accept()
+    await _forward_channel(websocket, material_channel(material_id))
 
 
 @router.websocket("/ws/classes/{class_id}")
@@ -76,10 +76,10 @@ async def class_events_ws(websocket: WebSocket, class_id: UUID, token: str | Non
             await websocket.close(code=4403)
             return
 
-        await websocket.accept()
-        await _forward_channel(websocket, class_channel(class_id))
     finally:
         db.close()
+    await websocket.accept()
+    await _forward_channel(websocket, class_channel(class_id))
 
 
 @router.websocket("/ws/live/{session_id}")
@@ -93,12 +93,17 @@ async def live_session_ws(websocket: WebSocket, session_id: UUID, token: str | N
             return
 
         is_host = session.host_id == user.id
-        is_participant = class_service.is_enrolled(db, user.id, session.class_id)
+        is_participant = (
+            db.query(LiveParticipant.id)
+            .filter_by(live_session_id=session_id, user_id=user.id)
+            .first()
+            is not None
+        )
         if not (is_host or is_participant):
             await websocket.close(code=4403)
             return
 
-        await websocket.accept()
-        await _forward_channel(websocket, live_session_channel(session_id))
     finally:
         db.close()
+    await websocket.accept()
+    await _forward_channel(websocket, live_session_channel(session_id))

@@ -42,6 +42,7 @@ def _setup(db, n_chunks=5, is_example=False):
                 class_id=cls.id,
                 section_title=f"Bab {i + 1}",
                 content=f"isi {i}",
+                order_index=i,
                 page_start=i,
                 page_end=i,
                 embedding=[0.1] * 384,
@@ -245,7 +246,10 @@ def test_route_accepts_and_marks_generating(client, db, pool):
 
     assert resp.status_code == 202
     assert resp.json() == {"status": "queued"}
-    pool.enqueue_job.assert_awaited_once_with("generate_levels_and_questions", class_id)
+    job_id = db.get(Class, uuid.UUID(class_id)).generation_job_id
+    pool.enqueue_job.assert_awaited_once_with(
+        "generate_levels_and_questions", class_id, job_id, _job_id=job_id
+    )
     db.expire_all()
     assert db.get(Class, uuid.UUID(class_id)).generation_status == GenerationStatus.generating
     got = client.get(f"/api/v1/classes/{class_id}", headers=headers).json()
@@ -312,3 +316,150 @@ def test_route_400_for_example_class(client, db, pool):
     resp = client.post(f"/api/v1/classes/{class_id}/levels/generate", headers=headers)
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Class contoh tidak bisa digenerate"
+
+
+def test_enqueue_failure_marks_failed_and_allows_retry(client, db, pool):
+    headers = _register(client, "queuefail@x.com")
+    class_id = _make_class(client, headers)
+    _add_ready_material(db, class_id)
+    pool.enqueue_job.side_effect = RuntimeError("Redis unavailable")
+    response = client.post(f"/api/v1/classes/{class_id}/levels/generate", headers=headers)
+    assert response.status_code == 503
+    db.expire_all()
+    assert db.get(Class, uuid.UUID(class_id)).generation_status == GenerationStatus.failed
+    pool.enqueue_job.side_effect = None
+    assert (
+        client.post(f"/api/v1/classes/{class_id}/levels/generate", headers=headers).status_code
+        == 202
+    )
+
+
+async def test_cancelled_job_sets_failed(db, events, monkeypatch):
+    import asyncio
+
+    cls = _setup(db, n_chunks=1)
+    monkeypatch.setattr(
+        job, "call_groq_structured", AsyncMock(side_effect=asyncio.CancelledError())
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await job.generate_levels_and_questions({}, str(cls.id))
+    db.refresh(cls)
+    assert cls.generation_status == GenerationStatus.failed
+    assert cls.generation_error == "Waktu pemrosesan habis"
+
+
+async def test_stale_worker_cannot_replace_new_generation(db, events):
+    cls = _setup(db, n_chunks=1)
+    cls.generation_job_id = "new-job"
+    cls.generation_status = GenerationStatus.generating
+    db.commit()
+    await job.generate_levels_and_questions({}, str(cls.id), "old-job")
+    assert db.query(Level).filter_by(class_id=cls.id).count() == 0
+    db.refresh(cls)
+    assert cls.generation_status == GenerationStatus.generating
+
+
+@pytest.mark.parametrize(
+    "job_status,recovered", [("not_found", True), ("queued", False), ("in_progress", False)]
+)
+async def test_recovery_preserves_queued_and_running_jobs(db, monkeypatch, job_status, recovered):
+    from datetime import UTC, datetime, timedelta
+
+    from arq.jobs import JobStatus
+
+    from app.worker import recovery
+
+    cls = _setup(db, n_chunks=1)
+    cls.generation_status = GenerationStatus.generating
+    cls.generation_job_id = "lost-job"
+    cls.generation_requested_at = datetime.now(UTC) - timedelta(hours=2)
+    db.commit()
+    monkeypatch.setattr(recovery.Job, "status", AsyncMock(return_value=JobStatus(job_status)))
+    await recovery.recover_generation(db, cls, AsyncMock())
+    db.refresh(cls)
+    assert (cls.generation_status == GenerationStatus.failed) == recovered
+
+
+async def test_same_page_sections_follow_saved_order_not_insert_or_uuid_order(db, events):
+    cls = _setup(db, n_chunks=0)
+    mat = db.query(Material).filter_by(class_id=cls.id).one()
+    for index in [2, 0, 1]:
+        db.add(
+            MaterialChunk(
+                material_id=mat.id,
+                class_id=cls.id,
+                section_title=f"Subbab {index}",
+                content=f"Isi bagian {index}",
+                page_start=0,
+                page_end=0,
+                order_index=index,
+                embedding=[0.1] * 384,
+            )
+        )
+    db.commit()
+    await job.generate_levels_and_questions({}, str(cls.id))
+    levels = db.query(Level).filter_by(class_id=cls.id).order_by(Level.order_index).all()
+    assert [level.title for level in levels] == ["Subbab 0", "Subbab 1", "Subbab 2"]
+    assert [level.prerequisite_id for level in levels] == [None, levels[0].id, levels[1].id]
+
+
+async def test_long_source_reaches_both_article_and_questions(db, monkeypatch):
+    from app.rag import context as source_context
+    from app.schemas.generation import GeneratedSourceNotes
+
+    cls = _setup(db, n_chunks=0)
+    material = db.query(Material).filter_by(class_id=cls.id).one()
+    facts = [
+        "Fakta awal: air bersih digunakan untuk mencuci tangan.",
+        "Fakta tengah: akar tumbuhan menyerap air dari tanah.",
+        "Fakta akhir: lampu belajar menggunakan energi listrik.",
+    ]
+    filler = "Tumbuhan perlu dirawat dengan menyiramnya secukupnya. " * 220
+    source = facts[0] + filler + facts[1] + filler + facts[2]
+    chunk = MaterialChunk(
+        material_id=material.id,
+        class_id=cls.id,
+        section_title="Materi panjang",
+        content=source,
+        order_index=0,
+        page_start=0,
+        page_end=4,
+        embedding=[0.1] * 384,
+    )
+    db.add(chunk)
+    db.commit()
+    seen_parts = []
+    seen_article = []
+    seen_questions = []
+
+    def extract(prompt):
+        return prompt.split("Konteks materi:\n", 1)[1].split("\n\nKembalikan HANYA JSON", 1)[0]
+
+    async def notes(redis, system, prompt, schema):
+        part = extract(prompt)
+        seen_parts.append(part)
+        selected = [fact for fact in facts if fact in part]
+        return GeneratedSourceNotes(notes=" ".join(selected) or "Tumbuhan perlu dirawat.")
+
+    async def generate(redis, system, prompt, schema):
+        context = extract(prompt)
+        if schema is GeneratedLevelLesson:
+            seen_article.append(context)
+            return GeneratedLevelLesson(
+                content=FAKE_CONTENT + context, summary="Materi sumber", key_points=["a", "b", "c"]
+            )
+        seen_questions.append(context)
+        return GeneratedQuestionsOutput(questions=[_fake_question(i) for i in range(5)])
+
+    monkeypatch.setattr(source_context, "call_groq_structured", notes)
+    monkeypatch.setattr(job, "call_groq_structured", generate)
+    monkeypatch.setattr(job, "publish_event", AsyncMock())
+    await job.generate_levels_and_questions({}, str(cls.id))
+    assert "".join(seen_parts) == source
+    assert seen_article == seen_questions
+    assert all(fact in seen_article[0] for fact in facts)
+    assert len(seen_article[0]) <= source_context.MAX_CONTEXT_CHARS
+    levels = db.query(Level).filter_by(class_id=cls.id).all()
+    assert len(levels) == 1
+    assert facts[-1] in levels[0].content
+    assert db.query(Question).filter_by(level_id=levels[0].id).count() == 5

@@ -34,19 +34,22 @@ def load_prompt(name: str) -> str:
 def get_groq_client() -> Groq:
     global _client
     if _client is None:
-        _client = Groq(api_key=settings.groq_api_key)
+        _client = Groq(api_key=settings.groq_api_key, max_retries=0)
     return _client
 
 
 async def _acquire_rate_limit_slot(redis: Redis) -> None:
     """Batasi panggilan Groq global per menit memakai counter di Redis."""
-    minute_bucket = int(time.time() // 60)
-    key = f"groq:calls:{minute_bucket}"
-    count = await redis.incr(key)
-    if count == 1:
-        await redis.expire(key, 60)
-    if count > GROQ_MAX_CALLS_PER_MINUTE:
-        await asyncio.sleep(60 - (time.time() % 60))
+    while True:
+        minute_bucket = int(time.time() // 60)
+        key = f"groq:calls:{minute_bucket}"
+        async with redis.pipeline(transaction=True) as pipe:
+            pipe.incr(key)
+            pipe.expire(key, 120)
+            count, _ = await pipe.execute()
+        if count <= GROQ_MAX_CALLS_PER_MINUTE:
+            return
+        await asyncio.sleep(max(0.01, 60 - (time.time() % 60)))
 
 
 class LlmHttpError(Exception):
@@ -93,10 +96,9 @@ def _call_groq_sync(system_prompt: str, user_prompt: str) -> str:
 
 
 async def call_groq_with_backoff(redis: Redis, system_prompt: str, user_prompt: str) -> str:
-    await _acquire_rate_limit_slot(redis)
-
     delay = 1.0
     for attempt in range(MAX_RATE_LIMIT_RETRIES):
+        await _acquire_rate_limit_slot(redis)
         try:
             return await asyncio.to_thread(_call_groq_sync, system_prompt, user_prompt)
         except Exception as exc:
