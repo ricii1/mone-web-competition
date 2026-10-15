@@ -12,6 +12,7 @@ Platform belajar berbasis peta level untuk **guru SD dan murid SD**. Guru mengun
 - [Data demo dan akun uji](#data-demo-dan-akun-uji)
 - [Mode LLM: mock atau Groq](#mode-llm-mock-atau-groq)
 - [Test dan lint](#test-dan-lint)
+- [Deployment Dokploy](docs/deploy-dokploy.md)
 - [Pemecahan masalah](#pemecahan-masalah)
 
 ## Prasyarat
@@ -190,3 +191,112 @@ Test memakai database terpisah `edumap_test` yang dibuat otomatis di server Post
 | `pytest` gagal mengimpor plugin aneh | Jalankan `unset PYTHONPATH` sebelum `pytest`. |
 | Ingin mengosongkan database dev | `docker compose down -v`, lalu `docker compose up -d` (Docker; migrasi otomatis) atau `docker compose up -d postgres redis` + `alembic upgrade head` (native), lalu seed. |
 | Worker Docker langsung berhenti dengan `ConnectionError ... localhost:6379` | `REDIS_URL` dari `.env` (localhost) bocor ke container. Sudah ditimpa di `docker-compose.yml`; pastikan memakai file compose terbaru dan jalankan `docker compose up -d --force-recreate`. |
+
+
+## Perbaikan keamanan dan menjalankan deployment
+
+Mode development tetap memakai `docker compose up -d --build`. Port PostgreSQL
+(5433) dan Redis (6379) sekarang hanya tersedia melalui loopback host. Pada native,
+jalankan migrasi sebelum memakai kode baru:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+Migrasi `0008` menambahkan identitas dan waktu permintaan generate. Worker baru
+memeriksa job tertinggal saat startup; endpoint generate juga memeriksanya. Job
+antre/berjalan tetap dipertahankan. Job yang hilang/selesai tetapi status class masih
+`generating` dapat dicoba ulang setelah tenggat 30 menit ditambah 1 menit. Job lama
+yang belum memiliki identitas diberi masa tenggang sejak migrasi. Restart worker
+setelah job aktif selesai supaya ia memakai kode baru.
+
+Untuk deployment, tersedia override terpisah (memerlukan Docker Compose yang
+mendukung `!reset` dan `!override`; konfigurasi diverifikasi dengan versi 5.0.2):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml config -q
+docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build
+```
+
+Sebelum deployment, isi `JWT_SECRET` dengan nilai acak minimal 32 byte, gunakan
+password database yang kuat, dan set URL API/WS serta CORS ke domain deployment.
+`APP_ENV=production` otomatis diterapkan override dan menolak secret placeholder
+serta password database contoh. Bila database sudah ada, password `.env` harus
+sesuai password akun PostgreSQL yang sudah tersimpan; mengganti variabel tidak
+mengganti password akun tersebut secara otomatis. Jangan hapus volume untuk
+mengatasi perbedaan password.
+
+Override menutup port DB/Redis, menonaktifkan reload dan bind mount kode,
+menjalankan backend/worker/frontend sebagai pengguna non-root, dan memakai build
+Next.js standalone. API/frontend hanya terbuka di loopback host untuk dilayani
+reverse proxy dengan HTTPS/WSS. Atur proxy agar menyensor query token WebSocket
+dalam access log. URL `NEXT_PUBLIC_*` ditanam saat build sehingga perubahan URL
+memerlukan build frontend ulang. Frontend production tidak menerima `.env`
+backend. Volume upload/model lama yang dibuat root mungkin memerlukan penyesuaian
+kepemilikan ke UID 10001 sebelum digunakan dengan mode non-root; pertahankan isinya.
+
+Batas request upload diterapkan sebelum multipart dibaca dan ukuran file diperiksa
+lagi saat streaming. Login dibatasi 10 percobaan/menit dan register 20/jam per IP
+serta email. Di sekolah dengan banyak pengguna melalui satu IP, batas registrasi
+ini perlu dipertimbangkan saat menyiapkan akun bersama.
+
+Kuis live menyimpan state/jawaban sementara 24 jam, terpisah dari deadline jawaban
+20 detik. Snapshot REST dan polling 4 detik memulihkan soal, jawaban sendiri, daftar
+peserta dan hasil akhir tanpa memerlukan WebSocket. Hasil akhir yang sudah ditutup
+dibaca dari PostgreSQL; snapshot tidak membocorkan jawaban soal aktif.
+
+Pemeriksaan realtime tanpa dependency tambahan:
+
+```bash
+cd frontend
+node --test tests/realtime.test.cjs
+```
+
+Laporan awal: [audit DevOps](docs/devops-audit.md). Status implementasi dan batasan
+ada di bagian akhir laporan tersebut.
+
+
+### Pembaruan pemrosesan dan persetujuan materi
+
+Migrasi `0009` menyimpan urutan chunk PDF, termasuk subbab pada halaman yang sama.
+Pada native, jalankan `alembic upgrade head` sebelum memakai worker baru. Data lama
+memakai urutan halaman dengan ID sebagai pemecah seri; urutan asli dalam halaman
+lama yang tidak tersimpan belum tentu dapat dipulihkan dari backfill.
+
+Sebelum menerbitkan kelas, guru harus menyetujui materi setiap level dan minimal
+satu soalnya. Kelas tidak bisa terbit saat proses generate masih berjalan. Migrasi
+tidak menulis ulang artikel, progres atau status kelas yang sudah terbit.
+
+Sumber panjang sekarang dibuatkan catatan sumber bertahap sebelum artikel/soal,
+sehingga bagian akhirnya ikut dibaca. Tahap tambahan hanya terjadi ketika konteks
+melebihi 8.000 karakter dan dapat menambah waktu generate. Artikel dan soal tetap
+perlu ditinjau guru. Subbab melebihi batas 128.000 karakter atau 16 bagian per
+putaran ditolak dengan pesan meminta pemisahan, bukan dipotong tanpa pemberitahuan.
+
+### Periksa sumber, tangani PDF gagal, dan hapus kelas
+
+- Di halaman kelola kelas, PDF berstatus **Siap** punya tombol **Lihat pembagian
+  materi**. Periksa judul, urutan, halaman dan teks sumber sebelum **Buat level**.
+  Teks lengkap dimuat hanya saat diminta, dan daftar panjang memiliki navigasi halaman.
+- PDF **Gagal** bisa **Coba proses lagi** tanpa unggah ulang atau **Hapus PDF gagal**.
+  Materi yang sudah menjadi sumber level/soal tetap dilindungi. Proses ulang tidak
+  tersedia saat pembuatan level berjalan; file asli harus masih tersedia.
+- Di bawah peta kelas, **Hapus kelas** meminta nama kelas sebagai konfirmasi.
+  Tindakan ini menghapus PDF, level, soal, progres murid dan hasil kuis secara permanen.
+  Akhiri kuis bersama dan tunggu job materi/level selesai terlebih dahulu.
+- Jalankan migrasi `alembic upgrade head` (termasuk `0010`) dan muat ulang worker
+  setelah memperbarui kode. Penanda job mencegah retry lama menimpa hasil baru.
+- Jika log mencatat kegagalan pembersihan file setelah commit, operator dapat
+  memeriksa folder `.deleted-*` pada `UPLOAD_DIR`; folder itu tidak lagi dipakai
+  metadata aktif. Penghapusan normal membersihkannya otomatis.
+
+### Bantuan Bu Hoo
+
+Tombol **Bantuan** di header membuka panduan interaktif untuk guru dan murid.
+Pilih langkah (dropdown di HP, tombol nomor di layar lebar), gunakan
+**Sebelumnya/Berikutnya**, tandai **Sudah paham**,
+atau buka halaman terkait dari panduan. Masalah umum tersedia pada bagian
+**Butuh bantuan lain?** dan bisa dibuka satu per satu. Panel mengikuti ukuran layar,
+isi dapat digulir, dan tombol tutup serta navigasi tetap terlihat di HP.
+Penanda panduan hanya berlaku selama halaman aktif; tidak mengubah nilai atau progres.

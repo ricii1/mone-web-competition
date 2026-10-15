@@ -1,0 +1,123 @@
+# Standalone production stack. Select this file in Dokploy, enable Isolated
+# Deployments, then route frontend:3000 and backend:8000 through the Domains UI.
+x-backend-build: &backend-build
+  context: ./backend
+  args:
+    INSTALL_DEV: "false"
+    APP_USER: app
+
+x-backend-env: &backend-env
+  APP_ENV: production
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-edumap}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-edumap}
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:?Set a random JWT_SECRET of at least 32 bytes}
+  JWT_EXPIRES_MINUTES: ${JWT_EXPIRES_MINUTES:-1440}
+  CORS_ORIGINS: ${CORS_ORIGINS:?Set the HTTPS frontend origin}
+  UPLOAD_DIR: /data/uploads
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-edumap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-edumap}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: *backend-build
+    environment: *backend-env
+    expose:
+      - "8000"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 10"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped
+
+  worker:
+    build: *backend-build
+    environment:
+      <<: *backend-env
+      WORKER_MAX_JOBS: ${WORKER_MAX_JOBS:-2}
+      LLM_MODE: ${LLM_MODE:-groq}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://senopati.its.ac.id/llm-gateway/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen3:14b}
+      API_KEY_LITELLM: ${API_KEY_LITELLM:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-180}
+      MOCK_LLM_DELAY_SECONDS: ${MOCK_LLM_DELAY_SECONDS:-0.8}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
+      EMBEDDING_DIM: "384"
+    volumes:
+      - uploads:/data/uploads
+      - model_cache:/home/app/.cache/huggingface
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: arq app.worker.settings.WorkerSettings
+    stop_grace_period: 60s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set the HTTPS backend URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?Set the WSS backend URL}
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    expose:
+      - "3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
+  model_cache:
